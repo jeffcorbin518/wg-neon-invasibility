@@ -28,7 +28,14 @@ Reading in Florida VegBank Data (from a zip file delivered by email from Bob Pee
 
 VegBank_plot_data_FL <- read_excel("CVS-FLplots.xlsx", sheet = "plot data")
 VegBank_plot_species_list_FL <- read_excel("CVS-FLplots.xlsx",  sheet = "plot species list")
+<<<<<<< HEAD
 
+=======
+VegBank_taxon_importance_FL <- read_excel(here::here("CVS-FLplots.xlsx"),  sheet = "taxon importance")
+VegBank_soil_avg_by_horizon_FL <- read_excel(here::here("CVS-FLplots.xlsx"), sheet = "soil data avgd by horizon")
+VegBank_disturbances_FL <- read_excel(here::here("CVS-FLplots.xlsx"), sheet = "disturbances")
+VegBank_species_richness_FL <-  read_excel(here::here("CVS-FLplots.xlsx"), sheet = "plot species richness")
+>>>>>>> 2045c14182eb80c4f6a36fe6d25203cb47eb702c
 
 ```
 
@@ -116,7 +123,11 @@ Not sure why it would not let me download all of them at once?
 ```{r}
 
 
+<<<<<<< HEAD
 USDA_plant_list_ALL <- read.delim2("USDA_all_with_syn.txt",  sep = ",")
+=======
+USDA_plant_list_ALL <- read.delim2(here::here("USDA_all_with_syn.txt"),  sep = ",")
+>>>>>>> 2045c14182eb80c4f6a36fe6d25203cb47eb702c
 
 USDA_plant_list_ALL <- USDA_plant_list_ALL %>%
   rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol') 
@@ -188,6 +199,7 @@ no_match2 <- dplyr::anti_join(VegBank_with_SpCode_FL,USDA_plant_list_ALL, by="be
 
 ```
 
+<<<<<<< HEAD
 Making a new table, pulling out odd plot size values etc
 
 ```{r}
@@ -203,6 +215,8 @@ write.csv(odd_plot_sizes,"odd_plot_sizes_FL_KPEACH.csv", row.names = FALSE)
 
 
 
+=======
+>>>>>>> 2045c14182eb80c4f6a36fe6d25203cb47eb702c
 ```{r}
 
 #As csv
