@@ -19,9 +19,6 @@ library(knitr)
 library(readxl)
 library(openxlsx)
 
-#NEON Data to Match
-PAINLES_25Oct2020 <- read_csv(here::here("PAINLES_25Oct2020.csv"))
-Alldata_PlotDiv_30Sept <- read_csv(here::here("Alldata_PlotDiv_30Sept.csv"))
 
 ```
 
@@ -30,8 +27,8 @@ Reading in Virginia VegBank Data (from a zip file delivered by email from Bob Pe
 ```{r, message = FALSE}
 
 
-VegBank_plot_data_VA <- read_excel("CVA-VAplots.xlsx", sheet = "plot data")
-VegBank_plot_species_list_VA <- read_excel("CVA-VAplots.xlsx",  sheet = "plot species list")
+VegBank_plot_data_VA <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVA-VAplots.xlsx", sheet = "plot data")
+VegBank_plot_species_list_VA <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVA-VAplots.xlsx",  sheet = "plot species list")
 
 
 ```
@@ -100,7 +97,7 @@ VegBank_multiple_species_VA$bestname <- gsub(".\\[|\\]", " ", VegBank_multiple_s
 VegBank_multiple_species_VA$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_VA$bestname)
 
 #Save as csv for Jeff to inspect
-write.csv(VegBank_multiple_species_VA,"multiple_sp_VA_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_multiple_species_VA,"/home/shares/neon-inv/output_files/multiple_sp_VA_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -118,7 +115,7 @@ Read in USDA Plants list with species codes
 ```{r}
 
 
-USDA_plant_list_ALL <- read.delim2("USDA_all_with_syn.txt",  sep = ",")
+USDA_plant_list_ALL <- read.delim2("/home/shares/neon-inv/raw_VegBank_data/USDA_all_with_syn.txt",  sep = ",")
 
 USDA_plant_list_ALL <- USDA_plant_list_ALL %>%
   rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol') 
@@ -136,7 +133,7 @@ no_match <- dplyr::anti_join(VegBank,USDA_plant_list_ALL, by="bestname")
 no_match$bestname <- stringr::word(no_match$bestname, 1)
 
 #Save as csv for Jeff to inspect
-write.csv(no_match,"no_match_VA_KPEACH.csv", row.names = FALSE)
+write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_VA_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -170,7 +167,7 @@ plot_sizes <- unique(VegBank_with_SpCode_VA$`Taxon Observation Area`)
 odd_plot_sizes <- VegBank_with_SpCode_VA %>%
   filter(`Taxon Observation Area` == '-1')
 
-#write.csv(odd_plot_sizes,"odd_plot_sizes_VA_KPEACH.csv", row.names = FALSE)
+
 
 ```
 
@@ -180,7 +177,7 @@ Export Workbook
 ```{r}
 
 #As csv
-write.csv(VegBank_with_SpCode_VA,"VegBank_VA_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_with_SpCode_VA,"/home/shares/neon-inv/output_files/VegBank_VA_KPEACH.csv", row.names = FALSE)
 
 ## setup a workbook with 2 worksheets
 wb <- createWorkbook()
