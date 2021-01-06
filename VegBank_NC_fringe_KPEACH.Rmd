@@ -25,8 +25,8 @@ Reading in North Carolina 'Fringe' Plots VegBank Data (from a zip file delivered
 ```{r, message = FALSE}
 
 
-VegBank_plot_data_NC_fringe <- read_excel("CVS-NCFringePlots.xlsx", sheet = "plot data")
-VegBank_plot_species_list_NC_fringe  <- read_excel("CVS-NCFringePlots.xlsx",  sheet = "plot species list")
+VegBank_plot_data_NC_fringe <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-NCFringePlots.xlsx", sheet = "plot data")
+VegBank_plot_species_list_NC_fringe  <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-NCFringePlots.xlsx",  sheet = "plot species list")
 
 ```
 
@@ -94,7 +94,7 @@ VegBank_multiple_species_NC_fringe$bestname <- gsub(".\\[|\\]", " ", VegBank_mul
 VegBank_multiple_species_NC_fringe$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_NC_fringe$bestname)
 
 #Save as csv for Jeff to inspect
-write.csv(VegBank_multiple_species_NC_fringe ,"multiple_sp_NC_fringe_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_multiple_species_NC_fringe ,"/home/shares/neon-inv/output_files/multiple_sp_NC_fringe_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -111,7 +111,7 @@ Read in USDA Plants list with species codes
 ```{r}
 
 
-USDA_plant_list_ALL <- read.delim2("USDA_all_with_syn.txt",  sep = ",")
+USDA_plant_list_ALL <- read.delim2("/home/shares/neon-inv/raw_VegBank_data/USDA_all_with_syn.txt",  sep = ",")
 
 USDA_plant_list_ALL <- USDA_plant_list_ALL %>%
   rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol') 
@@ -130,7 +130,7 @@ no_match <- dplyr::anti_join(VegBank_NC_fringe,USDA_plant_list_ALL, by="bestname
 no_match$bestname <- stringr::word(no_match$bestname, 1)
 
 #Save as csv for Jeff to inspect
-write.csv(no_match,"no_match_NC_fringe_KPEACH.csv", row.names = FALSE)
+write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_NC_fringe_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -172,6 +172,6 @@ odd_plot_sizes <- VegBank_with_SpCode_NC_fringe %>%
 ```{r}
 
 #As csv
-write.csv(VegBank_with_SpCode_NC_fringe,"VegBank_NC_fringe_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_with_SpCode_NC_fringe,"/home/shares/neon-inv/output_files/VegBank_NC_fringe_KPEACH.csv", row.names = FALSE)
 
 ```
