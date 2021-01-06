@@ -26,8 +26,8 @@ Reading in Alabama VegBank Data (from a zip file delivered by email from Bob Pee
 ```{r, message = FALSE}
 
 
-VegBank_plot_data_AL <- read_excel("CVS-ALplots.xlsx", sheet = "plot data")
-VegBank_plot_species_list_AL <- read_excel("CVS-ALplots.xlsx",  sheet = "plot species list")
+VegBank_plot_data_AL <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-ALplots.xlsx", sheet = "plot data")
+VegBank_plot_species_list_AL <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-ALplots.xlsx",  sheet = "plot species list")
 
 ```
 
@@ -97,7 +97,7 @@ VegBank_multiple_species_AL$bestname <- gsub(".\\[|\\]", " ", VegBank_multiple_s
 VegBank_multiple_species_AL$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_AL$bestname)
 
 #Save as csv for Jeff to inspect
-write.csv(VegBank_multiple_species_AL ,"multiple_sp_AL_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_multiple_species_AL ,"/home/shares/neon-inv/output_files/multiple_sp_AL_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -115,7 +115,7 @@ Read in USDA Plants list with species codes
 ```{r}
 
 
-USDA_plant_list_ALL <- read.delim2("USDA_all_with_syn.txt",  sep = ",")
+USDA_plant_list_ALL <- read.delim2("/home/shares/neon-inv/raw_VegBank_data/USDA_all_with_syn.txt",  sep = ",")
 
 USDA_plant_list_ALL <- USDA_plant_list_ALL %>%
   rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol') 
@@ -134,7 +134,7 @@ no_match <- dplyr::anti_join(VegBank_AL,USDA_plant_list_ALL, by="bestname")
 no_match$bestname <- stringr::word(no_match$bestname, 1)
 
 #Save as csv for Jeff to inspect
-write.csv(no_match,"no_match_AL_KPEACH.csv", row.names = FALSE)
+write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_AL_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -176,7 +176,7 @@ odd_plot_sizes <- VegBank_with_SpCode_AL %>%
 ```{r}
 
 #As csv
-write.csv(VegBank_with_SpCode_AL,"VegBank_AL_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_with_SpCode_AL,"/home/shares/neon-inv/output_files/VegBank_AL_KPEACH.csv", row.names = FALSE)
 
 ```
 
