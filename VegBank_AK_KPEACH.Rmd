@@ -27,8 +27,8 @@ Reading in Alaska VegBank Data (from a zip file delivered by email from Bob Peet
 ```{r, message = FALSE}
 
 
-VegBank_plot_data_AK <- read_excel("CVS-AKplots.xlsx", sheet = "plot data")
-VegBank_plot_species_list_AK <- read_excel("CVS-AKplots.xlsx",  sheet = "plot species list")
+VegBank_plot_data_AK <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-AKplots.xlsx", sheet = "plot data")
+VegBank_plot_species_list_AK <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-AKplots.xlsx",  sheet = "plot species list")
 
 
 ```
@@ -99,7 +99,7 @@ VegBank_multiple_species_AK$bestname <- gsub(".\\[|\\]", " ", VegBank_multiple_s
 VegBank_multiple_species_AK$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_AK$bestname)
 
 #Save as csv for Jeff to inspect
-write.csv(VegBank_multiple_species_AK ,"multiple_sp_AK_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_multiple_species_AK ,"/home/shares/neon-inv/output_files/multiple_sp_AK_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -118,7 +118,7 @@ Not sure why it would not let me download all of them at once?
 ```{r}
 
 
-USDA_plant_list_ALL <- read.delim2("USDA_all_with_syn.txt",  sep = ",")
+USDA_plant_list_ALL <- read.delim2("/home/shares/neon-inv/raw_VegBank_data/USDA_all_with_syn.txt",  sep = ",")
 
 USDA_plant_list_ALL <- USDA_plant_list_ALL %>%
   rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol') 
@@ -137,7 +137,7 @@ no_match <- dplyr::anti_join(VegBank_AK,USDA_plant_list_ALL, by="bestname")
 no_match$bestname <- stringr::word(no_match$bestname, 1)
 
 #Save as csv for Jeff to inspect
-write.csv(no_match,"no_match_AK_KPEACH.csv", row.names = FALSE)
+write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_AK_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -172,7 +172,7 @@ plot_sizes <- unique(VegBank_with_SpCode_AK$`Taxon Observation Area`)
 odd_plot_sizes <- VegBank_with_SpCode_AK %>%
   filter(`Taxon Observation Area` == '-1')
 
-write.csv(odd_plot_sizes,"odd_plot_sizes_AK_KPEACH.csv", row.names = FALSE)
+write.csv(odd_plot_sizes,"/home/shares/neon-inv/output_files/odd_plot_sizes_AK_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -180,7 +180,7 @@ write.csv(odd_plot_sizes,"odd_plot_sizes_AK_KPEACH.csv", row.names = FALSE)
 ```{r}
 
 #As csv
-write.csv(VegBank_with_SpCode_AK,"VegBank_AK_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_with_SpCode_AK,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH.csv", row.names = FALSE)
 
 ```
 
