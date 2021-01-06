@@ -26,8 +26,8 @@ Reading in North Carolina Coastal Plains VegBank Data (from a zip file delivered
 ```{r, message = FALSE, echo = FALSE}
 
 
-VegBank_plot_data_NC_coastal <- read_excel("CVS-NCCoastlplainPlots.xlsx", sheet = "plot data")
-VegBank_plot_species_list_NC_coastal  <- read_excel("CVS-NCCoastlplainPlots.xlsx",  sheet = "plot species list")
+VegBank_plot_data_NC_coastal <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-NCCoastlplainPlots.xlsx", sheet = "plot data")
+VegBank_plot_species_list_NC_coastal  <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-NCCoastlplainPlots.xlsx",  sheet = "plot species list")
 
 
 ```
@@ -97,7 +97,7 @@ VegBank_multiple_species_NC_coastal$bestname <- gsub(".\\[|\\]", " ", VegBank_mu
 VegBank_multiple_species_NC_coastal$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_NC_coastal$bestname)
 
 #Save as csv for Jeff to inspect
-write.csv(VegBank_multiple_species_NC_coastal ,"multiple_sp_NC_coastal_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_multiple_species_NC_coastal ,"/home/shares/neon-inv/output_files/multiple_sp_NC_coastal_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -114,7 +114,7 @@ Read in USDA Plants list with species codes
 ```{r}
 
 
-USDA_plant_list_ALL <- read.delim2("USDA_all_with_syn.txt",  sep = ",")
+USDA_plant_list_ALL <- read.delim2("/home/shares/neon-inv/raw_VegBank_data/USDA_all_with_syn.txt",  sep = ",")
 
 USDA_plant_list_ALL <- USDA_plant_list_ALL %>%
   rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol') 
@@ -133,7 +133,7 @@ no_match <- dplyr::anti_join(VegBank_NC_coastal,USDA_plant_list_ALL, by="bestnam
 no_match$bestname <- stringr::word(no_match$bestname, 1)
 
 #Save as csv for Jeff to inspect
-write.csv(no_match,"no_match_NC_coastal_KPEACH.csv", row.names = FALSE)
+write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_NC_coastal_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -168,13 +168,13 @@ plot_sizes <- unique(VegBank_with_SpCode_NC_coastal$`Taxon Observation Area`)
 odd_plot_sizes <- VegBank_with_SpCode_NC_coastal %>%
   filter(`Taxon Observation Area` == '-1')
 
-write.csv(odd_plot_sizes,"odd_plot_sizes_NC_coastal_KPEACH.csv", row.names = FALSE)
+write.csv(odd_plot_sizes,"/home/shares/neon-inv/output_files/odd_plot_sizes_NC_coastal_KPEACH.csv", row.names = FALSE)
 
 ```
 
 ```{r}
 
 #As csv
-write.csv(VegBank_with_SpCode_NC_coastal,"VegBank_NC_coastal_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_with_SpCode_NC_coastal,"/home/shares/neon-inv/output_files/VegBank_NC_coastal_KPEACH.csv", row.names = FALSE)
 
 ```

@@ -25,11 +25,9 @@ Reading in South Carolina VegBank Data (from a zip file delivered by email from 
 ```{r, message = FALSE}
 
 
-VegBank_plot_data_SC <- read_excel("CVS-SCplots.xlsx", sheet = "plot data")
-VegBank_plot_species_list_SC <- read_excel("CVS-SCplots.xlsx",  sheet = "plot species list")
-VegBank_taxon_importance_SC <- read_excel(here::here("CVS-SCplots.xlsx"),  sheet = "taxon importance")
-VegBank_soil_avg_by_horizon_SC <- read_excel(here::here("CVS-SCplots.xlsx"), sheet = "soil data avgd by horizon")
-VegBank_species_richness_SC <-  read_excel(here::here("CVS-SCplots.xlsx"), sheet = "plot species richness")
+VegBank_plot_data_SC <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-SCplots.xlsx", sheet = "plot data")
+VegBank_plot_species_list_SC <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-SCplots.xlsx",  sheet = "plot species list")
+
 
 ```
 
@@ -97,7 +95,7 @@ VegBank_multiple_species_SC$bestname <- gsub(".\\[|\\]", " ", VegBank_multiple_s
 VegBank_multiple_species_SC$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_SC$bestname)
 
 #Save as csv for Jeff to inspect
-write.csv(VegBank_multiple_species_SC ,"multiple_sp_SC_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_multiple_species_SC ,"/home/shares/neon-inv/output_files/multiple_sp_SC_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -114,7 +112,7 @@ Read in USDA Plants list with species codes
 ```{r}
 
 
-USDA_plant_list_ALL <- read.delim2(here::here("USDA_all_with_syn.txt"),  sep = ",")
+USDA_plant_list_ALL <- read.delim2("/home/shares/neon-inv/raw_VegBank_data/USDA_all_with_syn.txt",  sep = ",")
 
 USDA_plant_list_ALL <- USDA_plant_list_ALL %>%
   rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol') 
@@ -133,7 +131,7 @@ no_match <- dplyr::anti_join(VegBank_SC,USDA_plant_list_ALL, by="bestname")
 no_match$bestname <- stringr::word(no_match$bestname, 1)
 
 #Save as csv for Jeff to inspect
-write.csv(no_match,"no_match_SC_KPEACH.csv", row.names = FALSE)
+write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_SC_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -162,6 +160,6 @@ no_match2 <- dplyr::anti_join(VegBank_with_SpCode_SC,USDA_plant_list_ALL, by="be
 ```{r}
 
 #As csv
-write.csv(VegBank_with_SpCode_SC,"VegBank_SC_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_with_SpCode_SC,"/home/shares/neon-inv/output_files/VegBank_SC_KPEACH.csv", row.names = FALSE)
 
 ```
