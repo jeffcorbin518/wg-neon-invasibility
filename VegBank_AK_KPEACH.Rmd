@@ -26,8 +26,9 @@ Reading in Alaska VegBank Data (from a zip file delivered by email from Bob Peet
 
 ```{r, message = FALSE}
 
-
+#New file path to shared folder
 VegBank_plot_data_AK <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-AKplots.xlsx", sheet = "plot data")
+
 VegBank_plot_species_list_AK <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-AKplots.xlsx",  sheet = "plot species list")
 
 
@@ -59,8 +60,8 @@ VegBank_AK <- VegBank_AK %>% add_column(Dataset = 'VEGBANK', .before = "UniqueID
 #Making exotic status compatible to NEON data
 VegBank_AK$ExoticStatus <- gsub("native", "N", VegBank_AK$ExoticStatus)
 VegBank_AK$ExoticStatus <- gsub("NATIVE", "N", VegBank_AK$ExoticStatus)
-VegBank_AK$ExoticStatus <- gsub("exotic", "NI", VegBank_AK$ExoticStatus)
-VegBank_AK$ExoticStatus <- gsub("EXOTIC", "NI", VegBank_AK$ExoticStatus)
+VegBank_AK$ExoticStatus <- gsub("exotic", "I", VegBank_AK$ExoticStatus)
+VegBank_AK$ExoticStatus <- gsub("EXOTIC", "I", VegBank_AK$ExoticStatus)
 
 #Making the Woodiness column math the NEON 
 VegBank_AK$Woodiness <- gsub("Y", "Woody", VegBank_AK$Woodiness)
@@ -69,15 +70,12 @@ VegBank_AK$Woodiness <- gsub("Y", "Woody", VegBank_AK$Woodiness)
 VegBank_AK <- VegBank_AK  %>% 
   mutate(Woodiness = ifelse(GrowthForm %in% c("Herb", "Herb Vine", "Herb Shrub", "Herb Shrub Vine"), 'Herbaceous', Woodiness))
 
-#This just replaces all NA's, any row that was not explicitly labeled as 'Woody" as Herbaceous which could be wrong so I did not run it
-#VegBank$Woodiness<-  replace_na(VegBank$Woodiness, "Herbaceous")
 
 #Making sure all subspecies are noted correctly. Fixing some common errors that would prevent the species name from matching with the USDA plant list
 
 VegBank_AK$bestname <- gsub("subsp.", "ssp.", VegBank_AK$bestname)
 VegBank_AK$bestname <- gsub("subspecies", "ssp.", VegBank_AK$bestname)
 VegBank_AK$bestname <- gsub("ssp..", "ssp.", VegBank_AK$bestname)
-
 
 
 #strip white space
@@ -95,7 +93,7 @@ VegBank_multiple_species_AK <- VegBank_AK %>%
 #Removing brackets around specific epithets because the USDA Plants list does not use them..may be preventing matches
 VegBank_multiple_species_AK$bestname <- gsub(".\\[|\\]", " ", VegBank_multiple_species_AK$bestname)
 
-#Replacing  + with x because that is how USDA Plant List denotes hybrides
+#Replacing  + with x because that is how USDA Plant List denotes hybrids
 VegBank_multiple_species_AK$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_AK$bestname)
 
 #Save as csv for Jeff to inspect
@@ -120,8 +118,19 @@ Not sure why it would not let me download all of them at once?
 
 USDA_plant_list_ALL <- read.delim2("/home/shares/neon-inv/raw_VegBank_data/USDA_all_with_syn.txt",  sep = ",")
 
-USDA_plant_list_ALL <- USDA_plant_list_ALL %>%
-  rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol') 
+USDA_list_w_exotic_status <- read.delim2("USDA_list_w_exotic_status.txt",  sep = ",")
+
+
+#Only keeping L48 Native status which is always the first listed
+USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 0, 6)
+
+USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 5, 5)
+
+USDA_list_w_exotic_status$Native.Status <- gsub("[()]", "", USDA_list_w_exotic_status$Native.Status)
+
+USDA_plant_list_ALL <- USDA_list_w_exotic_status %>%
+  select(-"Symbol") %>%
+  rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol', "USDA_Exotic_Status" = "Native.Status", "USDA_Growth_Form" = "Growth.Habit", "USDA_Duration" = "Duration") 
 
 ```
 

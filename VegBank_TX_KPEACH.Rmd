@@ -25,8 +25,8 @@ Reading in Texas VegBank Data (from a zip file delivered by email from Bob Peet)
 ```{r, message = FALSE}
 
 
-VegBank_plot_data_TX <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-TXplots.xlsx", sheet = "plot data")
-VegBank_plot_species_list_TX  <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-TXplots.xlsx",  sheet = "plot species list")
+VegBank_plot_data_TX <- read_excel("CVS-TXplots.xlsx", sheet = "plot data")
+VegBank_plot_species_list_TX  <- read_excel("CVS-TXplots.xlsx",  sheet = "plot species list")
 
 
 ```
@@ -57,8 +57,8 @@ VegBank_TX <- VegBank_TX %>% add_column(Dataset = 'VEGBANK', .before = "UniqueID
 #Making exotic status compatible to NEON data
 VegBank_TX$ExoticStatus <- gsub("native", "N", VegBank_TX$ExoticStatus)
 VegBank_TX$ExoticStatus <- gsub("NATIVE", "N", VegBank_TX$ExoticStatus)
-VegBank_TX$ExoticStatus <- gsub("exotic", "NI", VegBank_TX$ExoticStatus)
-VegBank_TX$ExoticStatus <- gsub("EXOTIC", "NI", VegBank_TX$ExoticStatus)
+VegBank_TX$ExoticStatus <- gsub("exotic", "I", VegBank_TX$ExoticStatus)
+VegBank_TX$ExoticStatus <- gsub("EXOTIC", "I", VegBank_TX$ExoticStatus)
 
 #Making the Woodiness column math the NEON 
 VegBank_TX$Woodiness <- gsub("Y", "Woody", VegBank_TX$Woodiness)
@@ -95,7 +95,7 @@ VegBank_multiple_species_TX$bestname <- gsub(".\\[|\\]", " ", VegBank_multiple_s
 VegBank_multiple_species_TX$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_TX$bestname)
 
 #Save as csv for Jeff to inspect
-write.csv(VegBank_multiple_species_TX ,"/home/shares/neon-inv/output_files/multiple_sp_TX_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_multiple_species_TX ,"multiple_sp_TX_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -112,10 +112,21 @@ Read in USDA Plants list with species codes
 ```{r}
 
 
-USDA_plant_list_ALL <- read.delim2("/home/shares/neon-inv/raw_VegBank_data/USDA_all_with_syn.txt",  sep = ",")
+USDA_plant_list_ALL <- read.delim2("USDA_all_with_syn.txt",  sep = ",")
 
-USDA_plant_list_ALL <- USDA_plant_list_ALL %>%
-  rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol') 
+USDA_list_w_exotic_status <- read.delim2("USDA_list_w_exotic_status.txt",  sep = ",")
+
+
+#Only keeping L48 Native status which is always the first listed
+USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 0, 6)
+
+USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 5, 5)
+
+USDA_list_w_exotic_status$Native.Status <- gsub("[()]", "", USDA_list_w_exotic_status$Native.Status)
+
+USDA_plant_list_ALL <- USDA_list_w_exotic_status %>%
+  select(-"Symbol") %>%
+  rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol', "USDA_Exotic_Status" = "Native.Status", "USDA_Growth_Form" = "Growth.Habit", "USDA_Duration" = "Duration") 
 
 ```
 
@@ -131,7 +142,7 @@ no_match <- dplyr::anti_join(VegBank_TX,USDA_plant_list_ALL, by="bestname")
 no_match$bestname <- stringr::word(no_match$bestname, 1)
 
 #Save as csv for Jeff to inspect
-write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_TX_KPEACH.csv", row.names = FALSE)
+write.csv(no_match,"no_match_TX_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -167,13 +178,13 @@ plot_sizes <- unique(VegBank_with_SpCode_TX$`Taxon Observation Area`)
 odd_plot_sizes <- VegBank_with_SpCode_TX %>%
   filter(`Taxon Observation Area` == '-1')
 
-write.csv(odd_plot_sizes,"/home/shares/neon-inv/output_files/odd_plot_sizes_TX_KPEACH.csv", row.names = FALSE)
+write.csv(odd_plot_sizes,"odd_plot_sizes_TX_KPEACH.csv", row.names = FALSE)
 
 ```
 
 ```{r}
 
 #As csv
-write.csv(VegBank_with_SpCode_TX,"/home/shares/neon-inv/output_files/VegBank_TX_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_with_SpCode_TX,"VegBank_TX_KPEACH.csv", row.names = FALSE)
 
 ```

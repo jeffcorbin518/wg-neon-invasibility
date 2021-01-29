@@ -19,6 +19,9 @@ library(knitr)
 library(readxl)
 library(openxlsx)
 
+#NEON Data to Match
+#PAINLES_25Oct2020 <- read_csv(here::here("PAINLES_25Oct2020.csv"))
+#Alldata_PlotDiv_30Sept <- read_csv(here::here("Alldata_PlotDiv_30Sept.csv"))
 
 ```
 
@@ -27,8 +30,8 @@ Reading in Virginia VegBank Data (from a zip file delivered by email from Bob Pe
 ```{r, message = FALSE}
 
 
-VegBank_plot_data_VA <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVA-VAplots.xlsx", sheet = "plot data")
-VegBank_plot_species_list_VA <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVA-VAplots.xlsx",  sheet = "plot species list")
+VegBank_plot_data_VA <- read_excel("CVA-VAplots.xlsx", sheet = "plot data")
+VegBank_plot_species_list_VA <- read_excel("CVA-VAplots.xlsx",  sheet = "plot species list")
 
 
 ```
@@ -56,11 +59,13 @@ VegBank <- VegBank %>%
 #Adding a site column
 VegBank <- VegBank %>% add_column(Dataset = 'VEGBANK', .before = "UniqueID")  %>% add_column(Zone = 'L48', .before = "UniqueID")
 
+unique(VegBank$ExoticStatus)
+
 #Making exotic status compatible to NEON data
 VegBank$ExoticStatus <- gsub("native", "N", VegBank$ExoticStatus)
 VegBank$ExoticStatus <- gsub("NATIVE", "N", VegBank$ExoticStatus)
-VegBank$ExoticStatus <- gsub("exotic", "NI", VegBank$ExoticStatus)
-VegBank$ExoticStatus <- gsub("EXOTIC", "NI", VegBank$ExoticStatus)
+VegBank$ExoticStatus <- gsub("exotic", "I", VegBank$ExoticStatus)
+VegBank$ExoticStatus <- gsub("EXOTIC", "I", VegBank$ExoticStatus)
 
 #Making the Woodiness column math the NEON 
 VegBank$Woodiness <- gsub("Y", "Woody", VegBank$Woodiness)
@@ -97,7 +102,7 @@ VegBank_multiple_species_VA$bestname <- gsub(".\\[|\\]", " ", VegBank_multiple_s
 VegBank_multiple_species_VA$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_VA$bestname)
 
 #Save as csv for Jeff to inspect
-write.csv(VegBank_multiple_species_VA,"/home/shares/neon-inv/output_files/multiple_sp_VA_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_multiple_species_VA,"multiple_sp_VA_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -115,12 +120,24 @@ Read in USDA Plants list with species codes
 ```{r}
 
 
-USDA_plant_list_ALL <- read.delim2("/home/shares/neon-inv/raw_VegBank_data/USDA_all_with_syn.txt",  sep = ",")
+USDA_plant_list_ALL <- read.delim2("USDA_all_with_syn.txt",  sep = ",")
 
-USDA_plant_list_ALL <- USDA_plant_list_ALL %>%
-  rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol') 
+USDA_list_w_exotic_status <- read.delim2("USDA_list_w_exotic_status.txt",  sep = ",")
+
+
+#Only keeping L48 Native status which is always the first listed
+USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 0, 6)
+
+USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 5, 5)
+
+USDA_list_w_exotic_status$Native.Status <- gsub("[()]", "", USDA_list_w_exotic_status$Native.Status)
+
+USDA_plant_list_ALL <- USDA_list_w_exotic_status %>%
+  select(-"Symbol") %>%
+  rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol', "USDA_Exotic_Status" = "Native.Status", "USDA_Growth_Form" = "Growth.Habit", "USDA_Duration" = "Duration") 
 
 ```
+
 
 Table of species with no match in USDA table
 
@@ -133,7 +150,7 @@ no_match <- dplyr::anti_join(VegBank,USDA_plant_list_ALL, by="bestname")
 no_match$bestname <- stringr::word(no_match$bestname, 1)
 
 #Save as csv for Jeff to inspect
-write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_VA_KPEACH.csv", row.names = FALSE)
+write.csv(no_match,"no_match_VA_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -167,7 +184,7 @@ plot_sizes <- unique(VegBank_with_SpCode_VA$`Taxon Observation Area`)
 odd_plot_sizes <- VegBank_with_SpCode_VA %>%
   filter(`Taxon Observation Area` == '-1')
 
-
+#write.csv(odd_plot_sizes,"odd_plot_sizes_VA_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -177,26 +194,26 @@ Export Workbook
 ```{r}
 
 #As csv
-write.csv(VegBank_with_SpCode_VA,"/home/shares/neon-inv/output_files/VegBank_VA_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_with_SpCode_VA,"VegBank_VA_KPEACH.csv", row.names = FALSE)
 
 ## setup a workbook with 2 worksheets
-wb <- createWorkbook()
-addWorksheet(wb = wb, sheetName = "Raw Data", gridLines = TRUE)
+#wb <- createWorkbook()
+#addWorksheet(wb = wb, sheetName = "Raw Data", gridLines = TRUE)
 
-writeDataTable(wb = wb, sheet = 1, x = VegBank_with_SpCode_VA, keepNA = TRUE)
+#writeDataTable(wb = wb, sheet = 1, x = VegBank_with_SpCode_VA, keepNA = TRUE)
 
 #Worksheet 2
-addWorksheet(wb = wb, sheetName = "multiple_specific_epithets", gridLines = FALSE)
+#addWorksheet(wb = wb, sheetName = "multiple_specific_epithets", gridLines = FALSE)
 
-writeData(wb = wb, sheet = 2, x = VegBank_multiple_species_VA)
+#writeData(wb = wb, sheet = 2, x = VegBank_multiple_species_VA)
 
 #Worksheet 3
-addWorksheet(wb = wb, sheetName = "no_match", gridLines = FALSE)
+#addWorksheet(wb = wb, sheetName = "no_match", gridLines = FALSE)
 
-writeData(wb = wb, sheet = 3, x = no_match)
+#writeData(wb = wb, sheet = 3, x = no_match)
 
 #Save
-saveWorkbook(wb, "VegBank_VA.xlsx", overwrite = TRUE)
+#saveWorkbook(wb, "VegBank_VA.xlsx", overwrite = TRUE)
 
 ```
 

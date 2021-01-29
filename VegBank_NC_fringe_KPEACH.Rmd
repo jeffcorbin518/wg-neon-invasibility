@@ -25,8 +25,8 @@ Reading in North Carolina 'Fringe' Plots VegBank Data (from a zip file delivered
 ```{r, message = FALSE}
 
 
-VegBank_plot_data_NC_fringe <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-NCFringePlots.xlsx", sheet = "plot data")
-VegBank_plot_species_list_NC_fringe  <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-NCFringePlots.xlsx",  sheet = "plot species list")
+VegBank_plot_data_NC_fringe <- read_excel("CVS-NCFringePlots.xlsx", sheet = "plot data")
+VegBank_plot_species_list_NC_fringe  <- read_excel("CVS-NCFringePlots.xlsx",  sheet = "plot species list")
 
 ```
 
@@ -56,8 +56,8 @@ VegBank_NC_fringe <- VegBank_NC_fringe %>% add_column(Dataset = 'VEGBANK', .befo
 #Making exotic status compatible to NEON data
 VegBank_NC_fringe$ExoticStatus <- gsub("native", "N", VegBank_NC_fringe$ExoticStatus)
 VegBank_NC_fringe$ExoticStatus <- gsub("NATIVE", "N", VegBank_NC_fringe$ExoticStatus)
-VegBank_NC_fringe$ExoticStatus <- gsub("exotic", "NI", VegBank_NC_fringe$ExoticStatus)
-VegBank_NC_fringe$ExoticStatus <- gsub("EXOTIC", "NI", VegBank_NC_fringe$ExoticStatus)
+VegBank_NC_fringe$ExoticStatus <- gsub("exotic", "I", VegBank_NC_fringe$ExoticStatus)
+VegBank_NC_fringe$ExoticStatus <- gsub("EXOTIC", "I", VegBank_NC_fringe$ExoticStatus)
 
 #Making the Woodiness column math the NEON 
 VegBank_NC_fringe$Woodiness <- gsub("Y", "Woody", VegBank_NC_fringe$Woodiness)
@@ -94,7 +94,7 @@ VegBank_multiple_species_NC_fringe$bestname <- gsub(".\\[|\\]", " ", VegBank_mul
 VegBank_multiple_species_NC_fringe$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_NC_fringe$bestname)
 
 #Save as csv for Jeff to inspect
-write.csv(VegBank_multiple_species_NC_fringe ,"/home/shares/neon-inv/output_files/multiple_sp_NC_fringe_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_multiple_species_NC_fringe ,"multiple_sp_NC_fringe_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -111,10 +111,21 @@ Read in USDA Plants list with species codes
 ```{r}
 
 
-USDA_plant_list_ALL <- read.delim2("/home/shares/neon-inv/raw_VegBank_data/USDA_all_with_syn.txt",  sep = ",")
+USDA_plant_list_ALL <- read.delim2("USDA_all_with_syn.txt",  sep = ",")
 
-USDA_plant_list_ALL <- USDA_plant_list_ALL %>%
-  rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol') 
+USDA_list_w_exotic_status <- read.delim2("USDA_list_w_exotic_status.txt",  sep = ",")
+
+
+#Only keeping L48 Native status which is always the first listed
+USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 0, 6)
+
+USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 5, 5)
+
+USDA_list_w_exotic_status$Native.Status <- gsub("[()]", "", USDA_list_w_exotic_status$Native.Status)
+
+USDA_plant_list_ALL <- USDA_list_w_exotic_status %>%
+  select(-"Symbol") %>%
+  rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol', "USDA_Exotic_Status" = "Native.Status", "USDA_Growth_Form" = "Growth.Habit", "USDA_Duration" = "Duration") 
 
 ```
 
@@ -130,7 +141,7 @@ no_match <- dplyr::anti_join(VegBank_NC_fringe,USDA_plant_list_ALL, by="bestname
 no_match$bestname <- stringr::word(no_match$bestname, 1)
 
 #Save as csv for Jeff to inspect
-write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_NC_fringe_KPEACH.csv", row.names = FALSE)
+write.csv(no_match,"no_match_NC_fringe_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -172,6 +183,6 @@ odd_plot_sizes <- VegBank_with_SpCode_NC_fringe %>%
 ```{r}
 
 #As csv
-write.csv(VegBank_with_SpCode_NC_fringe,"/home/shares/neon-inv/output_files/VegBank_NC_fringe_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_with_SpCode_NC_fringe,"VegBank_NC_fringe_KPEACH.csv", row.names = FALSE)
 
 ```
