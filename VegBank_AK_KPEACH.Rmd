@@ -10,7 +10,6 @@ knitr::opts_chunk$set(echo = TRUE)
 Loading packages 
 
 ```{r}
-
 library(readr)
 library(readxl)
 library(tidyverse)
@@ -18,18 +17,18 @@ library(knitr)
 library(readxl)
 library(openxlsx)
 library(here)
-
-
 ```
 
 Reading in Alaska VegBank Data (from a zip file delivered by email from Bob Peet)
 
 ```{r, message = FALSE}
 
-#New file path to shared folder
-VegBank_plot_data_AK <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-AKplots.xlsx", sheet = "plot data")
+shared_data_raw <- "/home/shares/neon-inv/raw_VegBank_data"
 
-VegBank_plot_species_list_AK <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-AKplots.xlsx",  sheet = "plot species list")
+#New file path to shared folder
+VegBank_plot_data_AK <- read_excel(file.path(shared_data_raw, "CVS-AKplots.xlsx"), sheet = "plot data")
+
+VegBank_plot_species_list_AK <- read_excel(file.path(shared_data_raw, "CVS-AKplots.xlsx"),  sheet = "plot species list")
 
 
 ```
@@ -37,7 +36,6 @@ VegBank_plot_species_list_AK <- read_excel("/home/shares/neon-inv/raw_VegBank_da
 Selecting the columns I will need from the VegBank data to make a new dataset that will be compatible to merge with the PAINLES_25Oct2020 datasheet
 
 ```{r}
-
 
 VegBank_plot_data_AK2 <- VegBank_plot_data_AK %>%
   select('Author Observation Code', 'Observation Start Date', 'Real Latitude', 'Real Longitude', 'Taxon Observation Area', 'Sampling Level', 'previousObsCode') %>%
@@ -96,7 +94,7 @@ VegBank_multiple_species_AK$bestname <- gsub(".\\[|\\]", " ", VegBank_multiple_s
 #Replacing  + with x because that is how USDA Plant List denotes hybrids
 VegBank_multiple_species_AK$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_AK$bestname)
 
-#Save as csv for Jeff to inspect
+# Save as csv for Jeff to inspect
 write.csv(VegBank_multiple_species_AK ,"/home/shares/neon-inv/output_files/multiple_sp_AK_KPEACH.csv", row.names = FALSE)
 
 ```
@@ -174,7 +172,7 @@ no_match2 <- dplyr::anti_join(VegBank_with_SpCode_AK,USDA_plant_list_ALL, by="be
 
 Making a new table, pulling out odd plot size values etc
 
-```{r}
+```{r, eval=FLASE}
 
 plot_sizes <- unique(VegBank_with_SpCode_AK$`Taxon Observation Area`)
 
@@ -186,7 +184,7 @@ write.csv(odd_plot_sizes,"/home/shares/neon-inv/output_files/odd_plot_sizes_AK_K
 ```
 
 
-```{r}
+```{r, eval=FLASE}
 
 #As csv
 write.csv(VegBank_with_SpCode_AK,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH.csv", row.names = FALSE)
