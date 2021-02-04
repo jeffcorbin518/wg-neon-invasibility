@@ -22,7 +22,7 @@ library(here)
 Reading in Alaska VegBank Data (from a zip file delivered by email from Bob Peet)
 
 ```{r, message = FALSE}
-
+# shared folder raw-data
 shared_data_raw <- "/home/shares/neon-inv/raw_VegBank_data"
 
 #New file path to shared folder
