@@ -184,13 +184,13 @@ VegBank_multiple_species_AK$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multipl
 
 ```
 
-Removing these rows from the main data set until I can find a solution
+Removing these rows from the main data set until I can find a solution. I don't know what kind magic brackets have been 
 ```{r}
 
 VegBank_AK <- VegBank_AK %>%
     filter(!str_detect(bestname,  ".\\[|\\]."))
 
-VegBank_AK$bestname <- gsub(".\\[|\\]", " ", VegBank_AK$bestname)
+VegBank_AK$bestname  <- str_replace_all(VegBank_AK$bestname , "\\*|\\[|\\]", "")
 
 ```
 
@@ -237,6 +237,21 @@ unique(USDA_plant_list_ALL$USDA_Growth_Form)
 
 ```
 
+```{r}
+
+
+#Idk why it does not include some genera so I am going to fix manually
+USDA_plant_list_ALL <- USDA_plant_list_ALL %>% 
+add_row(bestname = 'Viola', SpCode = 'VIOLA')
+
+USDA_plant_list_ALL <- USDA_plant_list_ALL %>% 
+add_row(bestname = 'Polygonum', SpCode = 'POLYG4')
+
+
+  	
+
+  
+```
 
 
 
@@ -290,6 +305,30 @@ VegBank_AK$bestname <- gsub("Sambucus canadensis", "Sambucus nigra", VegBank_AK$
 
 VegBank_AK$bestname <- gsub("Sambucus nigra ssp.canadensis", "Sambucus nigra", VegBank_AK$bestname)
 
+VegBank_AK$bestname <- gsub("Muscadinia rotundifolia", "Vitis rotundifolia", VegBank_AK$bestname)
+
+VegBank_AK$bestname <- gsub("Fagus grandifolia var. caroliniana", "Fagus grandifolia", VegBank_AK$bestname)
+
+VegBank_AK$bestname <- gsub("Gonolobus suberosus var. granulatus", "Matelea gonocarpos", VegBank_AK$bestname)
+
+VegBank_AK$bestname <- gsub("Smilax hispida", "Smilax tamnoides", VegBank_AK$bestname)
+
+VegBank_AK$bestname <- gsub("Nabalus", "Prenanthes", VegBank_AK$bestname)
+
+VegBank_AK$bestname <- gsub("Persicaria virginiana", "Polygonum virginianum", VegBank_AK$bestname)
+
+VegBank_AK$bestname <- gsub("Carex intumescens var. intumescens", "Carex intumescens", VegBank_AK$bestname)
+
+VegBank_AK$bestname <- gsub("Ilex decidua var. decidua", "Ilex decidua", VegBank_AK$bestname)
+
+VegBank_AK$bestname <- gsub("Populus deltoides ssp.deltoides", "Populus deltoides", VegBank_AK$bestname)
+
+VegBank_AK$bestname <- gsub("Maianthemum racemosum ssp.racemosum", "Maianthemum racemosum", VegBank_AK$bestname)
+	
+
+
+#strip white space
+VegBank_AK$bestname  <- trimws(VegBank_AK$bestname, which = c("right"))
 
 ```
 
@@ -298,17 +337,21 @@ Table of species with no match in USDA table
 
 ```{r}
 
-#59 rows with no match
+#11 rows with no match
 no_match <- dplyr::anti_join(VegBank_AK,USDA_plant_list_ALL, by="bestname")
 
 #Filtering out any row with <.10 in the cover column
 no_match$PctCov <- as.numeric(no_match$PctCov) 
 
-#Now 106 no match
+#Removing all rows with less than 10% cover
 no_match <- no_match %>% filter(PctCov > .10)
 
+
+
 #Reducing all rows of the no match file to just the genus and specific epithet (no variety of subspecies) so that USDA can find matches
-no_match$bestname <- stringr::word(no_match$bestname, 1, 2)
+#no_match$bestname <- stringr::word(no_match$bestname, 1, 2)
+
+#no_match$bestname  <- gsub('[[:punct:]]', "", no_match$bestname)
 
 no_match <- no_match %>% drop_na(bestname)
 
@@ -341,6 +384,16 @@ VegBank_with_SpCode_AK <- VegBank_with_SpCode_AK %>% rename('VegBank_ExoticStatu
 
 
 ```
+
+```{r}
+
+
+
+
+```
+
+
+
 
 ```{r}
 
