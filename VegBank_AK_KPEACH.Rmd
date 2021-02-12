@@ -61,6 +61,7 @@ unname(getExoticStatus['ACMI2'])
 
 NEON_exotic_status <- PAINLES_25Oct2020 %>% select('SpCode', 'ExoticStatus') %>% rename('NEON_Exotic_Status' = 'ExoticStatus')
 
+NEON_exotic_status <- NEON_exotic_status[!duplicated(NEON_exotic_status$SpCode), ]
 
 ```
 
@@ -205,8 +206,10 @@ USDA_list_w_exotic_status <- USDA_list_w_exotic_status %>%
   filter(str_detect(`Native.Status`, "L[1-9]+..")) %>% # detect row with site tag
   mutate(Native.Status = str_extract(`Native.Status`, "L[1-9]+..."))
 
+unique(USDA_list_w_exotic_status$Native.Status)
+
 #Reducing the column to just include that status within the parenthesis ex. L48(N) = N
-USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 5, 6)
+USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 5, 7)
 
 USDA_list_w_exotic_status$Native.Status <- gsub("[()]", "", USDA_list_w_exotic_status$Native.Status)
 
@@ -237,18 +240,17 @@ unique(USDA_plant_list_ALL$USDA_Growth_Form)
 
 ```
 
+The USDA Plant List, when exported from the advanced search function, does not include the genus symbol for these genera. They are on the website (which is how I got the codes) but for some reason they are not exported with the list. Other genera ARE exported (Abelia = ABELI) so I know it was not a search error. Also, species within these genera are exported with the list (ex. Viola adunca = VIAD) just not the genus itself. So I don't think a chunk of the list is being cut out or not exporting properly. 
+
 ```{r}
 
 
 #Idk why it does not include some genera so I am going to fix manually
 USDA_plant_list_ALL <- USDA_plant_list_ALL %>% 
-add_row(bestname = 'Viola', SpCode = 'VIOLA')
+add_row(bestname = 'Viola', SpCode = 'VIOLA', USDA_Exotic_Status = "NI")
 
 USDA_plant_list_ALL <- USDA_plant_list_ALL %>% 
-add_row(bestname = 'Polygonum', SpCode = 'POLYG4')
-
-
-  	
+add_row(bestname = 'Polygonum', SpCode = 'POLYG4', USDA_Exotic_Status = "NI")
 
   
 ```
@@ -271,7 +273,11 @@ test$USDA_Exotic_Status <- as.character(test$USDA_Exotic_Status)
 all(test$NEON_Exotic_Status == test$USDA_Exotic_Status)
 
 #30,747 rows do not match the USDA assignation of exotic status
-Dont_match <- test[which(test[,'NEON_Exotic_Status'] != test[,'USDA_Exotic_Status']), ]
+Dont_match1 <- test[which(test[,'NEON_Exotic_Status'] != test[,'USDA_Exotic_Status']), ]
+
+Dont_match2 <- Dont_match1 %>% add_count(bestname, sort = TRUE)
+
+Dont_match <- Dont_match2[!duplicated(Dont_match2$bestname), ]
 
 #373 species in the NEON database have a different exotic status in NEON then they do in the USDA plant list
 dont_match_species <- unique(Dont_match$bestname)
@@ -281,8 +287,10 @@ total_species <- unique(PAINLES_25Oct2020$bestname)
 
 summary(Dont_match$NEON_Exotic_Status)
 
-#725,513 rows do match exactly!
+#725,513 rows DO match exactly!
 matches <- test[which(test[,'NEON_Exotic_Status'] == test[,'USDA_Exotic_Status']), ]
+
+write.csv(Dont_match,"/home/shares/neon-inv/output_files/Different_ExoticStatus_NEON_USDA_KPEACH.csv", row.names = FALSE)
 
 
 ```
@@ -347,16 +355,10 @@ no_match$PctCov <- as.numeric(no_match$PctCov)
 no_match <- no_match %>% filter(PctCov > .10)
 
 
-
-#Reducing all rows of the no match file to just the genus and specific epithet (no variety of subspecies) so that USDA can find matches
-#no_match$bestname <- stringr::word(no_match$bestname, 1, 2)
-
-#no_match$bestname  <- gsub('[[:punct:]]', "", no_match$bestname)
-
 no_match <- no_match %>% drop_na(bestname)
 
 #Save as csv for Jeff to inspect
-#write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_AK_KPEACH.csv", row.names = FALSE)
+write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_AK_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -385,14 +387,6 @@ VegBank_with_SpCode_AK <- VegBank_with_SpCode_AK %>% rename('VegBank_ExoticStatu
 
 ```
 
-```{r}
-
-
-
-
-```
-
-
 
 
 ```{r}
@@ -400,9 +394,9 @@ VegBank_with_SpCode_AK <- VegBank_with_SpCode_AK %>% rename('VegBank_ExoticStatu
 
 #this gives me a table with all the info I need. Three columns for "Exotic Status": VegBank Exotic Status, USDA exotic status, and NEON exotic status
 
-VegBank_AK3 <- left_join(VegBank_with_SpCode_AK, NEON_exotic_status, by = 'SpCode')
+VegBank_AK3 <- dplyr::left_join(VegBank_with_SpCode_AK, NEON_exotic_status, by = 'SpCode')
 
-VegBank_AK3 <- unique(Vegbank_AK3)
+#VegBank_AK3 <- unique(VegBank_AK3)
 
 #I am filling the NEW_ExoticStatus column with the values of the NEON_exotic_status column (where there are values) and for any NAs in the NEON_exotic_status column fill with the values from the USDA_exotic_status column
 
@@ -437,11 +431,27 @@ Removing columns we don't need
 ```{r}
 
 VegBank_AK5 <- VegBank_AK5  %>%
-  select(-'VegBank_GrowthForm', -'VegBank_ExoticStatus')
+  select(-'VegBank_GrowthForm', -'VegBankUniqueID')
 
 
 ```
 
+Making a table for NEON working group that shows which rows from the AK dataset do not have matching USDA and NEON exotic statuses
+
+```{r}
+
+#46 rows do not match the USDA assignation of exotic status
+dont_match_usda_neon_ExoticStatus <- VegBank_AK5[which(VegBank_AK5[,'NEON_Exotic_Status'] != VegBank_AK5[,'USDA_Exotic_Status']), ]
+
+dont_match_usda_neon_ExoticStatus$PctCov <- as.numeric(dont_match_usda_neon_ExoticStatus$PctCov)
+
+mismatch_names <- unique(dont_match_usda_neon_ExoticStatus$bestname)
+
+mismatch_names
+#As csv
+write.csv(dont_match_usda_neon_ExoticStatus,"/home/shares/neon-inv/output_files/Different_ExoticStatus_VegBank_AK_KPEACH.csv", row.names = FALSE)
+
+```
 
 
 
