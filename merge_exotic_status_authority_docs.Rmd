@@ -1,0 +1,125 @@
+---
+title: "merge_exotic_status_authority_docs"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The NEON working group has been using this csv file (taxonomy_temp10_revised.csv) as the authority for exotic status. However they have been overriding some of the exotic status assignations in taxonomy_temp10_revised.csv with the exotic status listed in this csv file: multStatusSpL48.xlsx
+
+In this Rmarkdown I will be combining these files to create one file to use as the exotic status authority for the VegBank data. 
+
+Loading packages
+
+```{r}
+
+library(readr)
+library(readxl)
+library(tidyverse)
+
+```
+
+
+```{r}
+
+taxonomy_temp10_revised <- read_csv("/home/shares/neon-inv/raw_VegBank_data/taxonomy_temp10_revised.csv")
+
+multStatusSpL48 <- read_excel("/home/shares/neon-inv/raw_VegBank_data/multStatusSpL48.xlsx")
+
+#Import USDA Plant List 
+USDA_list_w_exotic_status <- read.delim2("/home/shares/neon-inv/raw_VegBank_data/USDA_Plant_List_020821.txt",  sep = ",")
+
+
+```
+
+Read in USDA Plants list with species codes and only keep the native status for the L48
+
+```{r}
+
+#Only keeping L48 Native status by detecting string that start with L
+
+USDA_list_w_exotic_status <- USDA_list_w_exotic_status %>%
+  filter(str_detect(`Native.Status`, "L[1-9]+..")) %>% # detect row with site tag
+  mutate(Native.Status = str_extract(`Native.Status`, "L[1-9]+..."))
+
+#unique(USDA_list_w_exotic_status$Native.Status)
+
+#Reducing the column to just include that status within the parenthesis ex. L48(N) = N
+USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 5, 7)
+
+USDA_list_w_exotic_status$Native.Status <- gsub("[()]", "", USDA_list_w_exotic_status$Native.Status)
+
+USDA_list_w_exotic_status$Native.Status <- gsub('[[:punct:]]', "", USDA_list_w_exotic_status$Native.Status)
+
+#Check to make sure this worked. I can see that the native status symbols that remain are "I", "N", "NI" and "W". I will have to ask the NEON team what they want to do about the 'Waif' status individuals if they are present. There are only 16 waifs and 19 NI's so its mostly I and N species. 
+unique(USDA_list_w_exotic_status$Native.Status)
+
+summary(USDA_list_w_exotic_status$Native.Status)
+
+#Cleaning up the table by removing some extra columns we don't need and renaming others
+USDA_plant_list_ALL <- USDA_list_w_exotic_status %>%
+  select(-"Symbol") %>%
+ rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol', "USDA_Exotic_Status" = "Native.Status", "USDA_Growth_Form" = "Growth.Habit", "USDA_Duration" = "Duration") 
+
+
+
+```
+
+Reducing the USDA growth form description down to one word
+
+```{r}
+
+USDA_plant_list_ALL$USDA_Growth_Form <- gsub('[[:punct:]]', " ", USDA_plant_list_ALL$USDA_Growth_Form)
+
+USDA_plant_list_ALL$USDA_Growth_Form <- stringr::word(USDA_plant_list_ALL$USDA_Growth_Form, 1)
+
+unique(USDA_plant_list_ALL$USDA_Growth_Form)
+
+```
+
+Selecting only the columns I need from the csv file and excel file provided by the NEON working group
+
+```{r}
+
+taxonomy_temp10_revised <- taxonomy_temp10_revised %>% select('Symbol', 'inv_L48', 'GrowthForm', 'bestname') %>% rename('SpCode' = 'Symbol', 'NEON_GrowthForm' = 'GrowthForm')
+
+multStatusSpL48 <- multStatusSpL48 %>% select('SpCode', 'FINAL DECISION (L48)') %>% rename('Exception_Exotic_Status' = 'FINAL DECISION (L48)')
+
+exotic_status1 <- dplyr::full_join(taxonomy_temp10_revised, multStatusSpL48, by = 'SpCode')
+
+exotic_status2 <- exotic_status1 %>%
+  mutate('NEW_ExoticStatus' = ifelse(!is.na(Exception_Exotic_Status), Exception_Exotic_Status, inv_L48))
+
+KPEACH_ExoticStatus_authority1 <- exotic_status2 %>% select('SpCode', 'NEW_ExoticStatus', 'NEON_GrowthForm', 'bestname')
+
+
+```
+
+For any new species that are not already listed in the documents provided by NEON (taxonomy_temp10_revised.csv and multStatusSpL48.xlsx) I am using the USDA exotic status.
+
+```{r}
+
+KPEACH_ExoticStatus_authority2 <- full_join(KPEACH_ExoticStatus_authority1, USDA_plant_list_ALL, by = 'bestname')
+
+KPEACH_ExoticStatus_authority3 <- KPEACH_ExoticStatus_authority2 %>%
+  mutate('NEW_ExoticStatus' = ifelse(!is.na(NEW_ExoticStatus), NEW_ExoticStatus, USDA_Exotic_Status))
+
+KPEACH_ExoticStatus_authority <- KPEACH_ExoticStatus_authority3 %>% select(-'SpCode.y') %>% rename('SpCode' = 'SpCode.x')
+
+```
+
+
+
+Saving output files locally and in shared folder on aurora server
+```{r}
+
+#As csv on server in shared folder
+write.csv(KPEACH_ExoticStatus_authority,"/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority.csv", row.names = FALSE)
+
+#save locally
+write.csv(KPEACH_ExoticStatus_authority,"KPEACH_ExoticStatus_authority.csv", row.names = FALSE)
+
+```
+
