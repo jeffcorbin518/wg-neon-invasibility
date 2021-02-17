@@ -27,7 +27,7 @@ Import Data
 ```{r}
 
 #Import existing NEON database from shared folder
-#PAINLES_25Oct2020 <- read_csv("/home/shares/neon-inv/raw_VegBank_data/PAINLES_25Oct2020.csv")
+PAINLES_25Oct2020 <- read_csv("/home/shares/neon-inv/raw_VegBank_data/PAINLES_25Oct2020.csv")
 
 #Import Alaska VegBank Data from shared folder
 
@@ -357,6 +357,30 @@ VegBank_with_SpCode_AK <- VegBank_with_SpCode_AK %>% rename('VegBank_ExoticStatu
 
 ```
 
+
+I also kept all 3 GrowthForm columns. The 'VegBank_GrowthForm' is the growth form column that came with the data from Bob Peet/Jeff Corbin. The 'NEON_GrowthForm' column came from the taxonomy_temp10_revised.csv file. The 'USDA_GrowthForm' column came from the USDA plant list. I assume that the NEON group wants me to follow the same procedure as the exotic status column and use the NEON_GrowthForm whenever possible and then the USDA_GrowthForm for any new species. However, in a previous email Eve told me to use the USDA growth form and reduce it to only one word (ex. 'Forb/herb' would become 'Forb'). There are many rows in the NEON_GrowthForm column that do not follow this rule (they are more than one word). The READ ME file says to use the GrowthForm from the taxonomy_temp10_revised.csv file but also has a bullet point saying "Rule for growth form was to take the first thing listed (e.g., ‘Subshrub, Shrub’ became ‘Subshrub’)". So I made a new column called NEW_GrowthForm that uses the NEON_GrowthForm when available but the USDA_GrowthForm for new species. 
+
+
+```{r}
+
+#Removing punctuation so I can extract only the first word from this column
+VegBank_with_SpCode_AK$NEON_GrowthForm <- gsub('[[:punct:]]', " ", VegBank_with_SpCode_AK$NEON_GrowthForm)
+
+#Extracting first word
+VegBank_with_SpCode_AK$NEON_GrowthForm <- stringr::word(VegBank_with_SpCode_AK$NEON_GrowthForm, 1)
+
+#Making new column
+VegBank_with_SpCode_AK <- VegBank_with_SpCode_AK %>%
+  mutate('NEW_GrowthForm' = ifelse(!is.na(NEON_GrowthForm), NEON_GrowthForm, USDA_Growth_Form))
+
+
+
+```
+
+
+
+
+
 Don't need this anymore (I don't think) but leaving it until I am sure
 
 ```{r}
@@ -396,12 +420,15 @@ write.csv(odd_plot_sizes,"/home/shares/neon-inv/output_files/odd_plot_sizes_AK_K
 
 ```
 
+
+
+
 Removing columns we don't need
 
 ```{r}
 
-VegBank_AK5 <- VegBank_AK5  %>%
-  select(-'VegBank_GrowthForm')
+#VegBank_AK5 <- VegBank_AK5  %>%
+#  select(-'VegBank_GrowthForm', -'NEON_GrowthForm')
 
 
 ```
