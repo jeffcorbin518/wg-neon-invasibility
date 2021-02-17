@@ -363,6 +363,7 @@ I also kept all 3 GrowthForm columns. The 'VegBank_GrowthForm' is the growth for
 
 ```{r}
 
+<<<<<<< HEAD
 #Removing punctuation so I can extract only the first word from this column
 VegBank_with_SpCode_AK$NEON_GrowthForm <- gsub('[[:punct:]]', " ", VegBank_with_SpCode_AK$NEON_GrowthForm)
 
@@ -370,6 +371,9 @@ VegBank_with_SpCode_AK$NEON_GrowthForm <- gsub('[[:punct:]]', " ", VegBank_with_
 VegBank_with_SpCode_AK$NEON_GrowthForm <- stringr::word(VegBank_with_SpCode_AK$NEON_GrowthForm, 1)
 
 #Making new column
+=======
+
+>>>>>>> af6208042160bc503f3fd12101689630e47784cf
 VegBank_with_SpCode_AK <- VegBank_with_SpCode_AK %>%
   mutate('NEW_GrowthForm' = ifelse(!is.na(NEON_GrowthForm), NEON_GrowthForm, USDA_Growth_Form))
 
