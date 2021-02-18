@@ -79,15 +79,26 @@ unique(USDA_plant_list_ALL$USDA_Growth_Form)
 
 ```
 
-Selecting only the columns I need from the csv file and excel file provided by the NEON working group
+Selecting only the columns I need from the csv file and excel file provided by the NEON working group.
+
+During our meeting I asked Lais if the 'inv_L48' column was the best one to use for exotic status and she said yes. I did not ask which column I should use for 'bestname'. There is a bestname column already in the table BUT when I use the bestname = bestname I end up with duplicates. To see what I mean by this look at this:
 
 ```{r}
 
-taxonomy_temp10_revised <- taxonomy_temp10_revised %>% select('Symbol', 'inv_L48', 'GrowthForm', 'bestname') %>% rename('SpCode' = 'Symbol', 'NEON_GrowthForm' = 'GrowthForm')
+taxonomy_example <- read_csv("/home/shares/neon-inv/raw_VegBank_data/taxonomy_temp10_revised.csv")
+
+#Look at rows 7 and 8 of this table. They have the exact same 'bestname' but different 'Scientific.Name's and different SpCodes. It would make sense to me to use the bestname column because it already has the name of the column I need but when I do I end up with duplicates. 
+
+```
+
+
+```{r}
+
+taxonomy_temp10_revised <- taxonomy_temp10_revised %>% select('Symbol', 'inv_L48', 'GrowthForm', 'Scientific.Name') %>% rename('SpCode' = 'Symbol', 'NEON_GrowthForm' = 'GrowthForm', 'bestname' = 'Scientific.Name')
 
 multStatusSpL48 <- multStatusSpL48 %>% select('SpCode', 'FINAL DECISION (L48)') %>% rename('Exception_Exotic_Status' = 'FINAL DECISION (L48)')
 
-exotic_status1 <- dplyr::full_join(taxonomy_temp10_revised, multStatusSpL48, by = 'SpCode')
+exotic_status1 <- dplyr::left_join(taxonomy_temp10_revised, multStatusSpL48, by = 'SpCode')
 
 exotic_status2 <- exotic_status1 %>%
   mutate('NEW_ExoticStatus' = ifelse(!is.na(Exception_Exotic_Status), Exception_Exotic_Status, inv_L48))
