@@ -108,15 +108,15 @@ Julien, there is probably a cleaner way to achieve this right?
 #Adding  consecutive numbers to each UniqueID such that each row/observation has its own unique ID
 
 #Making a column of row numbers
-VegBank_AK <- cbind(rownames(VegBank_AK), data.frame(VegBank_AK, row.names=NULL))
+#VegBank_AK <- cbind(rownames(VegBank_AK), data.frame(VegBank_AK, row.names=NULL))
 
 #Adding a - so each UniqueID will be preserved it will just have a dash followed by sequential numbers
-numbers <- paste0('-', VegBank_AK$`rownames(VegBank_AK)`)
+#numbers <- paste0('-', VegBank_AK$`rownames(VegBank_AK)`)
 
 #Final step
-VegBank_AK <- VegBank_AK %>% 
-add_column('UniqueID' = paste0(VegBank_AK$VegBankUniqueID, numbers), .before = 'Dataset') %>% 
-select(-'rownames(VegBank_AK)')
+#VegBank_AK <- VegBank_AK %>% 
+#add_column('UniqueID' = paste0(VegBank_AK$VegBankUniqueID, numbers), .before = 'Dataset') %>% 
+#select(-'rownames(VegBank_AK)')
 
 ```
 
@@ -181,7 +181,7 @@ VegBank_multiple_species_AK$bestname <- gsub(".\\[|\\]", " ", VegBank_multiple_s
 VegBank_multiple_species_AK$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_AK$bestname)
 
 #Save as csv for Jeff to inspect
-write.csv(VegBank_multiple_species_AK ,"/home/shares/neon-inv/output_files/multiple_sp_AK_KPEACH.csv", row.names = FALSE)
+#write.csv(VegBank_multiple_species_AK ,"/home/shares/neon-inv/output_files/multiple_sp_AK_KPEACH.csv", row.names = FALSE)
 
 ```
 
@@ -310,8 +310,7 @@ no_match <- no_match %>% filter(PctCov > .10)
 
 no_match <- no_match %>% drop_na(bestname)
 
-#Save as csv for Jeff to inspect
-write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_AK_KPEACH.csv", row.names = FALSE)
+
 
 ```
 
@@ -330,10 +329,10 @@ numbers <- paste0('-', no_match$`rownames(no_match)`)
 #Final step
 no_match <- no_match %>% 
 mutate('SpCode' = paste0("NOMATCH_AK", numbers)) %>% 
-select(-'rownames(no_match)')
+select(-'rownames(no_match)') %>% 
+rename('Taxon Observation Area' = 'Taxon.Observation.Area', 'Sampling Level' = 'Sampling.Level')
 
 ```
-
 
 
 Adding species codes to rows with matches
@@ -355,15 +354,22 @@ VegBank_with_SpCode_AK <- merge(VegBank_with_SpCode_AK1, no_match, all = TRUE)
 VegBank_with_SpCode_AK <- VegBank_with_SpCode_AK %>% rename('VegBank_ExoticStatus' = 'ExoticStatus', 'VegBank_GrowthForm' = 'GrowthForm')
 
 
+
+
 ```
 
+```{r}
+
+#Save 
+write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_AK_KPEACH.csv", row.names = FALSE)
+
+```
 
 I also kept all 3 GrowthForm columns. The 'VegBank_GrowthForm' is the growth form column that came with the data from Bob Peet/Jeff Corbin. The 'NEON_GrowthForm' column came from the taxonomy_temp10_revised.csv file. The 'USDA_GrowthForm' column came from the USDA plant list. I assume that the NEON group wants me to follow the same procedure as the exotic status column and use the NEON_GrowthForm whenever possible and then the USDA_GrowthForm for any new species. However, in a previous email Eve told me to use the USDA growth form and reduce it to only one word (ex. 'Forb/herb' would become 'Forb'). There are many rows in the NEON_GrowthForm column that do not follow this rule (they are more than one word). The READ ME file says to use the GrowthForm from the taxonomy_temp10_revised.csv file but also has a bullet point saying "Rule for growth form was to take the first thing listed (e.g., ‘Subshrub, Shrub’ became ‘Subshrub’)". So I made a new column called NEW_GrowthForm that uses the NEON_GrowthForm when available but the USDA_GrowthForm for new species. 
 
 
 ```{r}
 
-<<<<<<< HEAD
 #Removing punctuation so I can extract only the first word from this column
 VegBank_with_SpCode_AK$NEON_GrowthForm <- gsub('[[:punct:]]', " ", VegBank_with_SpCode_AK$NEON_GrowthForm)
 
@@ -371,17 +377,12 @@ VegBank_with_SpCode_AK$NEON_GrowthForm <- gsub('[[:punct:]]', " ", VegBank_with_
 VegBank_with_SpCode_AK$NEON_GrowthForm <- stringr::word(VegBank_with_SpCode_AK$NEON_GrowthForm, 1)
 
 #Making new column
-=======
-
->>>>>>> af6208042160bc503f3fd12101689630e47784cf
 VegBank_with_SpCode_AK <- VegBank_with_SpCode_AK %>%
   mutate('NEW_GrowthForm' = ifelse(!is.na(NEON_GrowthForm), NEON_GrowthForm, USDA_Growth_Form))
 
 
 
 ```
-
-
 
 
 
@@ -414,11 +415,13 @@ Making a new table, pulling out odd plot size values etc
 
 plot_sizes <- unique(VegBank_with_SpCode_AK$`Taxon Observation Area`)
 
+class(VegBank_AK$`Taxon Observation Area`)
+
 odd_plot_sizes <- VegBank_with_SpCode_AK  %>%
-  filter(`Taxon.Observation.Area` == '-1')
+  filter('Taxon Observation Area' < 0)
 
 VegBank_AK5 <- VegBank_with_SpCode_AK %>%
-  filter(`Taxon.Observation.Area` != '-1')
+  filter('Taxon Observation Area' > 0)
 
 write.csv(odd_plot_sizes,"/home/shares/neon-inv/output_files/odd_plot_sizes_AK_KPEACH.csv", row.names = FALSE)
 
@@ -459,7 +462,17 @@ Making a table for NEON working group that shows which rows from the AK dataset 
 ```{r}
 
 #As csv
-write.csv(VegBank_AK5,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_AK5,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE)
+
+```
+
+```{r}
+
+VegBank_AK6 <- VegBank_AK5 %>%
+  select(-'VegBank_GrowthForm', -'VegBank_ExoticStatus', -'NEON_GrowthForm', -'USDA_Growth_Form', -'USDA_Exotic_Status')
+
+#As csv
+write.csv(VegBank_AK6,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
 
 ```
 
