@@ -26,11 +26,19 @@ library(tidyverse)
 
 taxonomy_temp10_revised <- read_csv("/home/shares/neon-inv/raw_VegBank_data/taxonomy_temp10_revised.csv")
 
+#Adding column with data origin so that when the datasets are merged we can keep track of which exotic status authorirty was used
+taxonomy_temp10_revised <- taxonomy_temp10_revised %>% add_column(ExoticStatus_Origin = 'taxonomy_temp10_revised', .before = 'inv_L48') 
+
 multStatusSpL48 <- read_excel("/home/shares/neon-inv/raw_VegBank_data/multStatusSpL48.xlsx")
+
+#Adding column with data origin so that when the datasets are merged we can keep track of which exotic status authorirty was used
+multStatusSpL48 <- multStatusSpL48 %>% add_column(ExoticStatus_Origin = 'multStatusSpL48', .before = 'FINAL DECISION (L48)') 
 
 #Import USDA Plant List 
 USDA_list_w_exotic_status <- read.delim2("/home/shares/neon-inv/raw_VegBank_data/USDA_Plant_List_020821.txt",  sep = ",")
 
+#Adding column with data origin so that when the datasets are merged we can keep track of which exotic status authorirty was used
+USDA_list_w_exotic_status <- USDA_list_w_exotic_status %>% add_column(ExoticStatus_Origin = 'USDA_PLANTLIST', .before = 'Native.Status') 
 
 ```
 
@@ -94,16 +102,19 @@ taxonomy_example <- read_csv("/home/shares/neon-inv/raw_VegBank_data/taxonomy_te
 
 ```{r}
 
-taxonomy_temp10_revised <- taxonomy_temp10_revised %>% select('Symbol', 'inv_L48', 'GrowthForm', 'Scientific.Name') %>% rename('SpCode' = 'Symbol', 'NEON_GrowthForm' = 'GrowthForm', 'bestname' = 'Scientific.Name')
+taxonomy_temp10_revised <- taxonomy_temp10_revised %>% select('Symbol', 'inv_L48', 'GrowthForm', 'Scientific.Name', 'ExoticStatus_Origin') %>% rename('SpCode' = 'Symbol', 'NEON_GrowthForm' = 'GrowthForm', 'bestname' = 'Scientific.Name')
 
-multStatusSpL48 <- multStatusSpL48 %>% select('SpCode', 'FINAL DECISION (L48)') %>% rename('Exception_Exotic_Status' = 'FINAL DECISION (L48)')
+multStatusSpL48 <- multStatusSpL48 %>% select('SpCode', 'FINAL DECISION (L48)', 'ExoticStatus_Origin') %>% rename('Exception_Exotic_Status' = 'FINAL DECISION (L48)')
 
 exotic_status1 <- dplyr::left_join(taxonomy_temp10_revised, multStatusSpL48, by = 'SpCode')
 
 exotic_status2 <- exotic_status1 %>%
   mutate('NEW_ExoticStatus' = ifelse(!is.na(Exception_Exotic_Status), Exception_Exotic_Status, inv_L48))
 
-KPEACH_ExoticStatus_authority1 <- exotic_status2 %>% select('SpCode', 'NEW_ExoticStatus', 'NEON_GrowthForm', 'bestname')
+exotic_status3 <- exotic_status2 %>%
+  mutate('ExoticStatus_Origin' = ifelse(!is.na(ExoticStatus_Origin.x), ExoticStatus_Origin.x, ExoticStatus_Origin.y))
+
+KPEACH_ExoticStatus_authority1 <- exotic_status3 %>% select('SpCode', 'NEW_ExoticStatus', 'NEON_GrowthForm', 'bestname', 'ExoticStatus_Origin')
 
 
 ```
@@ -117,7 +128,10 @@ KPEACH_ExoticStatus_authority2 <- full_join(KPEACH_ExoticStatus_authority1, USDA
 KPEACH_ExoticStatus_authority3 <- KPEACH_ExoticStatus_authority2 %>%
   mutate('NEW_ExoticStatus' = ifelse(!is.na(NEW_ExoticStatus), NEW_ExoticStatus, USDA_Exotic_Status))
 
-KPEACH_ExoticStatus_authority <- KPEACH_ExoticStatus_authority3 %>% select(-'SpCode.y') %>% rename('SpCode' = 'SpCode.x')
+KPEACH_ExoticStatus_authority4 <- KPEACH_ExoticStatus_authority3 %>%
+  mutate('ExoticStatus_Origin' = ifelse(!is.na(ExoticStatus_Origin.x), ExoticStatus_Origin.x, ExoticStatus_Origin.y))
+
+KPEACH_ExoticStatus_authority <- KPEACH_ExoticStatus_authority4 %>% select(-'SpCode.y', -'ExoticStatus_Origin.x', -'ExoticStatus_Origin.y') %>% rename('SpCode' = 'SpCode.x')
 
 ```
 
