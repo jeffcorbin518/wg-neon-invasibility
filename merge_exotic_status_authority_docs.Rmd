@@ -116,6 +116,7 @@ exotic_status3 <- exotic_status2 %>%
 
 KPEACH_ExoticStatus_authority1 <- exotic_status3 %>% select('SpCode', 'NEW_ExoticStatus', 'NEON_GrowthForm', 'bestname', 'ExoticStatus_Origin')
 
+KPEACH_ExoticStatus_authority1  <- KPEACH_ExoticStatus_authority1[!duplicated(KPEACH_ExoticStatus_authority1$bestname), ]
 
 ```
 
@@ -132,6 +133,8 @@ KPEACH_ExoticStatus_authority4 <- KPEACH_ExoticStatus_authority3 %>%
   mutate('ExoticStatus_Origin' = ifelse(!is.na(ExoticStatus_Origin.x), ExoticStatus_Origin.x, ExoticStatus_Origin.y))
 
 KPEACH_ExoticStatus_authority <- KPEACH_ExoticStatus_authority4 %>% select(-'SpCode.y', -'ExoticStatus_Origin.x', -'ExoticStatus_Origin.y') %>% rename('SpCode' = 'SpCode.x')
+
+KPEACH_ExoticStatus_authority  <- KPEACH_ExoticStatus_authority[!duplicated(KPEACH_ExoticStatus_authority$bestname), ]
 
 ```
 

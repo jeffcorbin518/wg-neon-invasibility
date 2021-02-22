@@ -97,7 +97,7 @@ VegBank_AK <- VegBank_AK %>% add_column(Dataset = 'VEGBANK', .before = "VegBankU
 
 ```
 
-
+*Not doing this anymore because the UniqueID needs to be used to tie each site to a set of environmental variables. 
 
 Adding sequential numbers to the UniqueID. The current VegBank_UniqueID is assigned to multiple species observed within the same plot at the same time. We met with the NEON working group and they want truly unique identifiers for each observation/row. So I am adding a '-' followed by sequential numbers (basically row numbers) to the VegBank_UniqueID to create a NEON 'UniqueID'.
 
@@ -415,30 +415,27 @@ Making a new table, pulling out odd plot size values etc
 
 plot_sizes <- unique(VegBank_with_SpCode_AK$`Taxon Observation Area`)
 
-class(VegBank_AK$`Taxon Observation Area`)
+class(VegBank_with_SpCode_AK$`Taxon Observation Area`)
+
+#When I try to filter out the '-1' taxon observation area rows this way it does not work...even though the class of the row is numeric so it should recognize negative numbers as being less than 0.
+
+#*It did not like the '' I was using around the column name and I have no idea why not? It is working now 
+
+VegBank_with_SpCode_AK$`Taxon Observation Area` <- as.numeric(VegBank_with_SpCode_AK$`Taxon Observation Area`)
 
 odd_plot_sizes <- VegBank_with_SpCode_AK  %>%
-  filter('Taxon Observation Area' < 0)
+  filter(`Taxon Observation Area` < 0)
 
 VegBank_AK5 <- VegBank_with_SpCode_AK %>%
-  filter('Taxon Observation Area' > 0)
+  filter(`Taxon Observation Area` > 0)
+
+
 
 write.csv(odd_plot_sizes,"/home/shares/neon-inv/output_files/odd_plot_sizes_AK_KPEACH.csv", row.names = FALSE)
 
 ```
 
 
-
-
-Removing columns we don't need
-
-```{r}
-
-#VegBank_AK5 <- VegBank_AK5  %>%
-#  select(-'VegBank_GrowthForm', -'NEON_GrowthForm')
-
-
-```
 
 Making a table for NEON working group that shows which rows from the AK dataset do not have matching USDA and NEON exotic statuses
 
@@ -457,6 +454,14 @@ Making a table for NEON working group that shows which rows from the AK dataset 
 
 ```
 
+Renaming USDA_Duration column to just 'Duration' per Lais' request
+
+```{r}
+
+VegBank_AK5 <- VegBank_AK5 %>% rename('Duration' = 'USDA_Duration') %>% select(-Synonym.Symbol)
+
+
+```
 
 
 ```{r}
@@ -473,6 +478,8 @@ VegBank_AK6 <- VegBank_AK5 %>%
 
 #As csv
 write.csv(VegBank_AK6,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
+
+write.csv(VegBank_AK6,"VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
 
 ```
 
