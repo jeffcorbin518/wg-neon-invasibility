@@ -426,9 +426,8 @@ VegBank_with_SpCode_AK$`Taxon Observation Area` <- as.numeric(VegBank_with_SpCod
 odd_plot_sizes <- VegBank_with_SpCode_AK  %>%
   filter(`Taxon Observation Area` < 0)
 
-VegBank_AK5 <- VegBank_with_SpCode_AK %>%
-  filter(`Taxon Observation Area` > 0)
-
+#VegBank_AK5 <- VegBank_with_SpCode_AK %>%
+#  filter(`Taxon Observation Area` > 0)
 
 
 write.csv(odd_plot_sizes,"/home/shares/neon-inv/output_files/odd_plot_sizes_AK_KPEACH.csv", row.names = FALSE)
@@ -458,7 +457,7 @@ Renaming USDA_Duration column to just 'Duration' per Lais' request
 
 ```{r}
 
-VegBank_AK5 <- VegBank_AK5 %>% rename('Duration' = 'USDA_Duration') %>% select(-Synonym.Symbol)
+VegBank_AK5 <- VegBank_with_SpCode_AK %>% rename('Duration' = 'USDA_Duration') %>% select(-Synonym.Symbol)
 
 
 ```

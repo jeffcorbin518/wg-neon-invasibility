@@ -138,6 +138,15 @@ KPEACH_ExoticStatus_authority  <- KPEACH_ExoticStatus_authority[!duplicated(KPEA
 
 ```
 
+There are a couple species that appear on the USDA website with valid SpCode but were not exported with the list. Manually entering these here
+
+```{r}
+
+#https://plants.usda.gov/core/profile?symbol=PALY3
+KPEACH_ExoticStatus_authority <- KPEACH_ExoticStatus_authority %>% 
+add_row(bestname = 'Pallavicinia lyellii', SpCode = 'PALY3', USDA_Exotic_Status = "N", USDA_Growth_Form = "Nonvascular")
+
+```
 
 
 Saving output files locally and in shared folder on aurora server
