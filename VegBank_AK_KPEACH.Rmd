@@ -97,7 +97,9 @@ VegBank_AK <- VegBank_AK %>%
   mutate('Year' = substr(VegBank_AK$Year, 1, 4))
 
 #Adding dataset and zone columns. The dataset names in the existing NEON database are pretty broad (ex. 'BLM') so VegBank seems ok but I could always add the region ID. VegBank_AK instead of VegBank if we want more precision here
-VegBank_AK <- VegBank_AK %>% add_column(Dataset = 'VEGBANK', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
+VegBank_AK <- VegBank_AK %>% 
+  add_column(Dataset = 'VEGBANK', .before = "VegBankUniqueID")  %>% 
+  add_column(Zone = 'L48', .before = "VegBankUniqueID")
 
 ```
 
@@ -455,26 +457,27 @@ Renaming USDA_Duration column to just 'Duration' per Lais' request
 
 ```{r}
 
-VegBank_AK5 <- VegBank_with_SpCode_AK %>% rename('Duration' = 'USDA_Duration') %>% select(-Synonym.Symbol)
-
+VegBank_AK5 <- VegBank_with_SpCode_AK %>% 
+  rename('Duration' = 'USDA_Duration') %>% 
+  select(-Synonym.Symbol)
 
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 
 #As csv
-write.csv(VegBank_AK5,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE)
+write.csv(VegBank_AK5, file.path(data_output,"/VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE))
 
 ```
 
-```{r}
+```{r, eval=FALSE}
 
 VegBank_AK6 <- VegBank_AK5 %>%
   select(-'VegBank_GrowthForm', -'VegBank_ExoticStatus', -'NEON_GrowthForm', -'USDA_Growth_Form', -'USDA_Exotic_Status')
 
 #As csv
-write.csv(VegBank_AK6,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
+write.csv(VegBank_AK6, file.path(data_output,"VegBank_AK_KPEACH_reduced.csv", row.names = FALSE))
 
 write.csv(VegBank_AK6,"VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
 
