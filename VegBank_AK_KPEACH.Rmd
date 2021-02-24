@@ -7,9 +7,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Loading packages 
+## Loading packages 
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(readr)
 library(readxl)
 library(tidyverse)
@@ -19,13 +19,9 @@ library(openxlsx)
 library(here)
 library(stringdist)
 
-
 ```
 
-Import Data
-
-
-
+## Import Data
 
 ```{r, message = FALSE}
 # Paths to data
@@ -34,7 +30,10 @@ data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
 data_output <- file.path(shared_data_dir, "output_files")
 
 #Import existing NEON database from shared folder
-PAINLES_25Oct2020 <- read_csv(file.path(data_raw,"PAINLES_25Oct2020.csv"))
+PAINLES_25Oct2020 <- read_csv(file.path(data_raw,"PAINLES_25Oct2020.csv"),   
+                              col_types = cols(Site = col_character(),
+                                               NEONvst_status = col_character())
+                              )
 
 #New file path to shared folder
 VegBank_plot_data_AK <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"), sheet = "plot data")
@@ -46,7 +45,7 @@ KPEACH_ExoticStatus_authority <- read_csv(file.path(data_output,"KPEACH_ExoticSt
 ```
 
 
-Making a lookup table of exotic status for species already present in the NEON database
+## Making a look-up table of exotic status for species already present in the NEON database
 
 ```{r}
 
