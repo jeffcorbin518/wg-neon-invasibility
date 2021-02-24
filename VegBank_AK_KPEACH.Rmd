@@ -22,13 +22,14 @@ library(here)
 Reading in Alaska VegBank Data (from a zip file delivered by email from Bob Peet)
 
 ```{r, message = FALSE}
-# shared folder raw-data
-shared_data_raw <- "/home/shares/neon-inv/raw_VegBank_data"
+# Paths to data
+shared_data_dir <- "/home/shares/neon-inv"
+data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
+data_output <- file.path(shared_data_dir, "output_files")
 
 #New file path to shared folder
-VegBank_plot_data_AK <- read_excel(file.path(shared_data_raw, "CVS-AKplots.xlsx"), sheet = "plot data")
-
-VegBank_plot_species_list_AK <- read_excel(file.path(shared_data_raw, "CVS-AKplots.xlsx"),  sheet = "plot species list")
+VegBank_plot_data_AK <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"), sheet = "plot data")
+VegBank_plot_species_list_AK <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"),  sheet = "plot species list")
 
 
 ```
@@ -40,15 +41,15 @@ Selecting the columns I will need from the VegBank data to make a new dataset th
 VegBank_plot_data_AK2 <- VegBank_plot_data_AK %>%
   select('Author Observation Code', 'Observation Start Date', 'Real Latitude', 'Real Longitude', 'Taxon Observation Area', 'Sampling Level', 'previousObsCode') %>%
   rename( 'UniqueID' = 'Author Observation Code','Year' = 'Observation Start Date', 'Lat' = 'Real Latitude', 'Long' = 'Real Longitude' ) %>%
-  filter('Sampling Level' >  4)
+  filter('Sampling Level' >  4)  # JB - Explain why this threshold
 
 VegBank_plot_species_list_AK2 <- VegBank_plot_species_list_AK %>%
   select('authorObsCode', 'currentTaxonNameWithSp', 'cover', 'taxon_growthForm_short', 'taxon_woody', 'taxon_exotic', 'taxon_usda_growthForm', 'taxon_usda_code', 'taxon_woody') %>%
   rename( 'UniqueID' = 'authorObsCode','bestname' = 'currentTaxonNameWithSp', 'PctCov' = 'cover', 'SpCode' = 'taxon_usda_code', 'ExoticStatus' = 'taxon_exotic', 'GrowthForm' = 'taxon_growthForm_short', 'Woodiness' = 'taxon_woody')
 
-VegBank_AK <- full_join(VegBank_plot_data_AK2, VegBank_plot_species_list_AK2, by = 'UniqueID')
+VegBank_AK <- full_join(VegBank_plot_data_AK2, VegBank_plot_species_list_AK2, by = 'UniqueID')   # JB - Full join might create duplicate. It is generally better to set up things to use left_join
 
-#Reducing sampling date to just the year to match NEON data
+# Reducing sampling date to just the year to match NEON data
 VegBank_AK <- VegBank_AK %>% 
   mutate('Year' = substr(VegBank_AK$Year, 1, 4))
 
@@ -81,7 +82,7 @@ VegBank_AK$bestname  <- trimws(VegBank_AK$bestname, which = c("right"))
 
 ```
 
-Making a datatable with taxonomic names that include multiple specific epithets
+Making a data table with taxonomic names that include multiple specific epithets
 
 ```{r}
 
@@ -95,7 +96,7 @@ VegBank_multiple_species_AK$bestname <- gsub(".\\[|\\]", " ", VegBank_multiple_s
 VegBank_multiple_species_AK$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_AK$bestname)
 
 # Save as csv for Jeff to inspect
-write.csv(VegBank_multiple_species_AK ,"/home/shares/neon-inv/output_files/multiple_sp_AK_KPEACH.csv", row.names = FALSE)
+# write.csv(VegBank_multiple_species_AK, file.path(data_output,"multiple_sp_AK_KPEACH.csv"), row.names = FALSE)
 
 ```
 
@@ -114,9 +115,9 @@ Not sure why it would not let me download all of them at once?
 ```{r}
 
 
-USDA_plant_list_ALL <- read.delim2("/home/shares/neon-inv/raw_VegBank_data/USDA_all_with_syn.txt",  sep = ",")
+USDA_plant_list_ALL <- read.delim2(file.path(shared_data_dir, "raw_VegBank_data/USDA_all_with_syn.txt"),  sep = ",")
 
-USDA_list_w_exotic_status <- read.delim2("USDA_list_w_exotic_status.txt",  sep = ",")
+USDA_list_w_exotic_status <- read.delim2(file.path(shared_data_dir, "USDA_list_w_exotic_status.txt"),  sep = ",")
 
 
 #Only keeping L48 Native status which is always the first listed
@@ -144,7 +145,7 @@ no_match <- dplyr::anti_join(VegBank_AK,USDA_plant_list_ALL, by="bestname")
 no_match$bestname <- stringr::word(no_match$bestname, 1)
 
 #Save as csv for Jeff to inspect
-write.csv(no_match,"/home/shares/neon-inv/output_files/no_match_AK_KPEACH.csv", row.names = FALSE)
+# write.csv(no_match, file.path(data_output, "no_match_AK_KPEACH.csv"), row.names = FALSE)
 
 ```
 
@@ -179,7 +180,7 @@ plot_sizes <- unique(VegBank_with_SpCode_AK$`Taxon Observation Area`)
 odd_plot_sizes <- VegBank_with_SpCode_AK %>%
   filter(`Taxon Observation Area` == '-1')
 
-write.csv(odd_plot_sizes,"/home/shares/neon-inv/output_files/odd_plot_sizes_AK_KPEACH.csv", row.names = FALSE)
+# write.csv(odd_plot_sizes, file.path(data_output, "odd_plot_sizes_AK_KPEACH.csv"), row.names = FALSE)
 
 ```
 
@@ -187,7 +188,7 @@ write.csv(odd_plot_sizes,"/home/shares/neon-inv/output_files/odd_plot_sizes_AK_K
 ```{r, eval=FLASE}
 
 #As csv
-write.csv(VegBank_with_SpCode_AK,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_with_SpCode_AK, file.path(data_output, "VegBank_AK_KPEACH.csv"), row.names = FALSE)
 
 ```
 
