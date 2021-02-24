@@ -7,10 +7,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Loading packages 
+## Loading packages 
 
-```{r}
-
+```{r, message=FALSE, warning=FALSE}
 library(readr)
 library(readxl)
 library(tidyverse)
@@ -22,26 +21,31 @@ library(stringdist)
 
 ```
 
-Import Data
+## Import Data
 
-```{r}
+```{r, message = FALSE}
+# Paths to data
+shared_data_dir <- "/home/shares/neon-inv"
+data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
+data_output <- file.path(shared_data_dir, "output_files")
 
 #Import existing NEON database from shared folder
-PAINLES_25Oct2020 <- read_csv("/home/shares/neon-inv/raw_VegBank_data/PAINLES_25Oct2020.csv")
+PAINLES_25Oct2020 <- read_csv(file.path(data_raw,"PAINLES_25Oct2020.csv"),   
+                              col_types = cols(Site = col_character(),
+                                               NEONvst_status = col_character())
+                              )
 
-#Import Alaska VegBank Data from shared folder
-
-VegBank_plot_data_AK <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-AKplots.xlsx", sheet = "plot data")
-
-VegBank_plot_species_list_AK <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-AKplots.xlsx",  sheet = "plot species list")
+#New file path to shared folder
+VegBank_plot_data_AK <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"), sheet = "plot data")
+VegBank_plot_species_list_AK <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"),  sheet = "plot species list")
 
 #Import NEW Exotic Status Authority document
-KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority.csv")
+KPEACH_ExoticStatus_authority <- read_csv(file.path(data_output,"KPEACH_ExoticStatus_authority.csv"))
 
 ```
 
 
-Making a lookup table of exotic status for species already present in the NEON database
+## Making a look-up table of exotic status for species already present in the NEON database
 
 ```{r}
 
@@ -69,17 +73,17 @@ Selecting the columns I will need from the VegBank data to make a new dataset th
 
 ```{r}
 
-
 VegBank_plot_data_AK2 <- VegBank_plot_data_AK %>%
   select('Author Observation Code', 'Observation Start Date', 'Real Latitude', 'Real Longitude', 'Taxon Observation Area', 'Sampling Level', 'previousObsCode') %>%
   rename( 'VegBankUniqueID' = 'Author Observation Code','Year' = 'Observation Start Date', 'Lat' = 'Real Latitude', 'Long' = 'Real Longitude' ) %>%
-  filter('Sampling Level' >  4)
+  filter('Sampling Level' >  4)  # JB - Explain why this threshold
+
 
 VegBank_plot_species_list_AK2 <- VegBank_plot_species_list_AK %>%
   select('authorObsCode', 'currentTaxonNameWithSp', 'cover', 'taxon_growthForm_short', 'taxon_woody', 'taxon_exotic',  'taxon_usda_code', 'taxon_woody') %>%
   rename( 'VegBankUniqueID' = 'authorObsCode','bestname' = 'currentTaxonNameWithSp', 'PctCov' = 'cover', 'SpCode' = 'taxon_usda_code', 'ExoticStatus' = 'taxon_exotic', 'GrowthForm' = 'taxon_growthForm_short', 'Woodiness' = 'taxon_woody')
 
-VegBank_AK <- full_join(VegBank_plot_data_AK2, VegBank_plot_species_list_AK2, by = 'VegBankUniqueID')
+VegBank_AK <- full_join(VegBank_plot_data_AK2, VegBank_plot_species_list_AK2, by = 'VegBankUniqueID') # JB - Full join might create duplicate. It is generally better to set up things to use left_join
 
 
 ```
@@ -88,12 +92,14 @@ Misc Cleanup
 
 ```{r}
 
-#Reducing sampling date to just the year to match NEON data
+# Reducing sampling date to just the year to match NEON data
 VegBank_AK <- VegBank_AK %>% 
   mutate('Year' = substr(VegBank_AK$Year, 1, 4))
 
 #Adding dataset and zone columns. The dataset names in the existing NEON database are pretty broad (ex. 'BLM') so VegBank seems ok but I could always add the region ID. VegBank_AK instead of VegBank if we want more precision here
-VegBank_AK <- VegBank_AK %>% add_column(Dataset = 'VEGBANK', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
+VegBank_AK <- VegBank_AK %>% 
+  add_column(Dataset = 'VEGBANK', .before = "VegBankUniqueID")  %>% 
+  add_column(Zone = 'L48', .before = "VegBankUniqueID")
 
 ```
 
@@ -167,7 +173,8 @@ VegBank_AK$bestname  <- trimws(VegBank_AK$bestname, which = c("right"))
 ```
 
 
-Making a datatable with taxonomic names that include multiple specific epithets
+Making a data table with taxonomic names that include multiple specific epithets
+
 
 ```{r}
 
@@ -180,8 +187,9 @@ VegBank_multiple_species_AK$bestname <- gsub(".\\[|\\]", " ", VegBank_multiple_s
 #Replacing  + with x because that is how USDA Plant List denotes hybrids
 VegBank_multiple_species_AK$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_AK$bestname)
 
-#Save as csv for Jeff to inspect
-#write.csv(VegBank_multiple_species_AK ,"/home/shares/neon-inv/output_files/multiple_sp_AK_KPEACH.csv", row.names = FALSE)
+# Save as csv for Jeff to inspect
+# write.csv(VegBank_multiple_species_AK, file.path(data_output,"multiple_sp_AK_KPEACH.csv"), row.names = FALSE)
+
 
 ```
 
@@ -198,7 +206,6 @@ The USDA Plant List, when exported from the advanced search function, does not i
 
 ```{r}
 
-
 #Idk why it does not include some genera so I am going to fix manually
 #USDA_plant_list_ALL <- USDA_plant_list_ALL %>% 
 #add_row(bestname = 'Viola', SpCode = 'VIOLA', USDA_Exotic_Status = "NI")
@@ -206,7 +213,6 @@ The USDA Plant List, when exported from the advanced search function, does not i
 #USDA_plant_list_ALL <- USDA_plant_list_ALL %>% 
 #add_row(bestname = 'Polygonum', SpCode = 'POLYG4', USDA_Exotic_Status = "NI")
 
-  
 ```
 
 
@@ -214,7 +220,6 @@ The USDA Plant List, when exported from the advanced search function, does not i
 Here I am trying to match the native status codes in the NEON database with the native status codes within the USDA plant list. In other words, are all of the species listed as "I" in the NEON database also listed as "I" in the USDA database?
 
 ```{r}
-
 
 #test <- full_join(USDA_plant_list_ALL, NEON_exotic_status, by = 'SpCode')
 
@@ -245,7 +250,6 @@ Here I am trying to match the native status codes in the NEON database with the 
 #matches <- test[which(test[,'NEON_Exotic_Status'] == test[,'USDA_Exotic_Status']), ]
 
 #write.csv(Dont_match,"/home/shares/neon-inv/output_files/Different_ExoticStatus_NEON_USDA_KPEACH.csv", row.names = FALSE)
-
 
 ```
 
@@ -309,8 +313,6 @@ no_match$PctCov <- as.numeric(no_match$PctCov)
 no_match <- no_match %>% filter(PctCov > .10)
 
 no_match <- no_match %>% drop_na(bestname)
-
-
 
 ```
 
@@ -411,7 +413,7 @@ Don't need this anymore (I don't think) but leaving it until I am sure
 
 Making a new table, pulling out odd plot size values etc
 
-```{r}
+```{r, eval=FLASE}
 
 plot_sizes <- unique(VegBank_with_SpCode_AK$`Taxon Observation Area`)
 
@@ -430,15 +432,14 @@ odd_plot_sizes <- VegBank_with_SpCode_AK  %>%
 #  filter(`Taxon Observation Area` > 0)
 
 
-write.csv(odd_plot_sizes,"/home/shares/neon-inv/output_files/odd_plot_sizes_AK_KPEACH.csv", row.names = FALSE)
+# write.csv(odd_plot_sizes, file.path(data_output, "odd_plot_sizes_AK_KPEACH.csv"), row.names = FALSE)
 
 ```
 
 
-
 Making a table for NEON working group that shows which rows from the AK dataset do not have matching USDA and NEON exotic statuses
 
-```{r}
+```{r, eval=FLASE}
 
 #46 rows do not match the USDA assignation of exotic status
 #dont_match_usda_neon_ExoticStatus <- VegBank_AK5[which(VegBank_AK5[,'NEON_Exotic_Status'] != VegBank_AK5[,'USDA_Exotic_Status']), ]
@@ -450,33 +451,33 @@ Making a table for NEON working group that shows which rows from the AK dataset 
 #mismatch_names
 #As csv
 #write.csv(dont_match_usda_neon_ExoticStatus,"/home/shares/neon-inv/output_files/Different_ExoticStatus_VegBank_AK_KPEACH.csv", row.names = FALSE)
-
 ```
 
 Renaming USDA_Duration column to just 'Duration' per Lais' request
 
 ```{r}
 
-VegBank_AK5 <- VegBank_with_SpCode_AK %>% rename('Duration' = 'USDA_Duration') %>% select(-Synonym.Symbol)
-
+VegBank_AK5 <- VegBank_with_SpCode_AK %>% 
+  rename('Duration' = 'USDA_Duration') %>% 
+  select(-Synonym.Symbol)
 
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 
 #As csv
-write.csv(VegBank_AK5,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE)
+write.csv(VegBank_AK5, file.path(data_output,"/VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE))
 
 ```
 
-```{r}
+```{r, eval=FALSE}
 
 VegBank_AK6 <- VegBank_AK5 %>%
   select(-'VegBank_GrowthForm', -'VegBank_ExoticStatus', -'NEON_GrowthForm', -'USDA_Growth_Form', -'USDA_Exotic_Status')
 
 #As csv
-write.csv(VegBank_AK6,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
+write.csv(VegBank_AK6, file.path(data_output,"VegBank_AK_KPEACH_reduced.csv", row.names = FALSE))
 
 write.csv(VegBank_AK6,"VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
 
