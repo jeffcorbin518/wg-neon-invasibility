@@ -49,7 +49,6 @@ Read in USDA Plants list with species codes and only keep the native status for 
 #Only keeping L48 Native status by detecting string that start with L
 
 USDA_list_w_exotic_status <- USDA_list_w_exotic_status %>%
-  filter(str_detect(`Native.Status`, "L[1-9]+..")) %>% # detect row with site tag
   mutate(Native.Status = str_extract(`Native.Status`, "L[1-9]+..."))
 
 #unique(USDA_list_w_exotic_status$Native.Status)
