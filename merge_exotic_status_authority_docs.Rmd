@@ -129,21 +129,14 @@ KPEACH_ExoticStatus_authority3 <- KPEACH_ExoticStatus_authority2 %>%
   mutate('NEW_ExoticStatus' = ifelse(!is.na(NEW_ExoticStatus), NEW_ExoticStatus, USDA_Exotic_Status))
 
 KPEACH_ExoticStatus_authority4 <- KPEACH_ExoticStatus_authority3 %>%
+  mutate(SpCode = ifelse(!is.na(SpCode.x), SpCode.x, SpCode.y))
+
+KPEACH_ExoticStatus_authority5 <- KPEACH_ExoticStatus_authority4 %>%
   mutate('ExoticStatus_Origin' = ifelse(!is.na(ExoticStatus_Origin.x), ExoticStatus_Origin.x, ExoticStatus_Origin.y))
 
-KPEACH_ExoticStatus_authority <- KPEACH_ExoticStatus_authority4 %>% select(-'SpCode.y', -'ExoticStatus_Origin.x', -'ExoticStatus_Origin.y') %>% rename('SpCode' = 'SpCode.x')
+KPEACH_ExoticStatus_authority <- KPEACH_ExoticStatus_authority5 %>% select(-'SpCode.y', -'SpCode.x', -'ExoticStatus_Origin.x', -'ExoticStatus_Origin.y') 
 
 KPEACH_ExoticStatus_authority  <- KPEACH_ExoticStatus_authority[!duplicated(KPEACH_ExoticStatus_authority$bestname), ]
-
-```
-
-There are a couple species that appear on the USDA website with valid SpCode but were not exported with the list. Manually entering these here
-
-```{r}
-
-#https://plants.usda.gov/core/profile?symbol=PALY3
-KPEACH_ExoticStatus_authority <- KPEACH_ExoticStatus_authority %>% 
-add_row(bestname = 'Pallavicinia lyellii', SpCode = 'PALY3', USDA_Exotic_Status = "N", USDA_Growth_Form = "Nonvascular")
 
 ```
 
