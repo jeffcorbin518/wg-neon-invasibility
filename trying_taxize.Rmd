@@ -1,0 +1,118 @@
+---
+title: "trying_taxize_for_errors"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+#Picked a random sample of names from the no match list from the VegBank Georgia site 
+species <- c("Poaceae", "Liatriscata", "Carex section Acrocystis", "Eudicotyledonae", "Myriopteris lanosa", "Brassicaceae", "Bryodesma arenicola", "Zephyranthes atamasco", "Ulmus americana var. americana", "Liatriscata","Prenanthes altissimus", "Styrax americanus", "Smallanthus uvedalia")
+
+#I want to correct synonim and typo's and drop incomplete cases.
+library(taxize)
+library(dplyr)
+
+# First - fix synonims
+temp <- synonyms(species, db="itis")
+synonym_ids <- grep(pattern = "acc_name", temp) #is this the optimal solution?
+accepted_names <- unlist(lapply(temp[synonym_ids], '[', "acc_name"), use.names = FALSE)
+species[synonym_ids] <- accepted_names
+#honestly, taxize is great, but doing things like update synonims needs  
+# quite a lot of thougth to get coded (grep's and lapplies!). Or I am missing something?
+#>  Scott: I agree that this could be easier 
+#>    Opened a new issue (https://github.com/ropensci/taxize/issues/533) to make it 
+#>    easier to go from synonyms() output to extract names into a vector (or possibly 
+#>    optionally add to a data.frame). Also, different synonyms() sources have different 
+#>    output data, which adds complexity
+
+# Second - fix misspellings
+species2 <- unique(species)
+temp <- gnr_resolve(species2, best_match_only = TRUE, canonical = TRUE)
+temp
+# quite good, but matched name can be a genus only... 
+#>  Scott: what do you mean here?
+#>    I see that your non-existant taxon "Osmia wikifluqie" returns
+#>    just "Osmia". Did you expect something else?
+species2 <- temp$matched_name2
+# here We will need to recover repeated species in an eficient way, as the are dropped.
+
+```
+```{r}
+
+
+# Third - keep only accepted names.
+itis_acceptname(get_tsn(species2))
+vapply(x, itis_acceptname, "")
+#error due to "not found" species having non compatible outputs
+#> Scott: the species2 vector has all accepted names when I run through this. 
+#>   Also, itis_acceptname is not vectorized, so I showed a vapply example above
+#>   Ahhhh, I see that you used a loop below, but lapply/vapply is probably easier
+#>   perhaps we should make itis_acceptname 
+#>   vectorized (https://github.com/ropensci/taxize/issues/534)
+
+out <- list()
+for(i in 1:length(species2)){
+  out[[i]] <- itis_acceptname(get_tsn(species2[i]))
+}
+#All accepted, wich is not what I want.
+
+
+#this provides nicer output and can be used to drop unknown species, AND keep synonims.
+taxas <- tax_name(query = species2, get = "species", verbose = TRUE)
+#fails because not all has species. in a for loop will work.
+out <- list()
+for(i in 1:length(species2)){
+  out[[i]] <- tax_name(species2[i], get = "species")
+}
+out2 <- plyr::ldply(out, data.frame)
+species2[-which(is.na(out2$species))]
+
+#note, using genus do not work, because all has genus now.
+taxas <- tax_name(query = species2, get = "genus", verbose = TRUE)
+
+```
+
+```{r}
+
+### For each input, pick one name, either synonym if found, or same name
+### that use gave if no synonyms found
+#' @export
+#' @rdname synonyms
+#' @examples
+#' synonyms_gather(x)
+#' synonyms_gather(x, FALSE)
+synonyms_gather <- function(x, simplify = TRUE) {
+  res <- list()
+  for (i in seq_along(x)) {
+    switch(
+      attr(x, "db"),
+      itis = {
+        res[[ names(x)[i] ]] <- if ('acc_name' %in% names(x[[i]])) {
+          unique(x[[i]]$acc_name)
+        } else {
+          unique(names(x)[i])
+        }
+      },
+      col = {
+        res[[ names(x)[i] ]] <-
+        if (!is.null(x[[i]])) {
+
+          unique(x[[i]]$acc_name)
+        } else {
+          unique(names(x)[i])
+        }
+      }
+    )
+  }
+  return(res)
+}
+
+
+spnames <- synonyms_gather(species2)
+
+```
+
