@@ -42,7 +42,7 @@ Selecting the columns I will need from the VegBank data to make a new dataset th
 
 ```{r}
 
-VegBank_plot_data_GA$'Sampling Level' <- as.numeric(VegBank_plot_data_GA$'Sampling Level')
+VegBank_plot_data_GA$`Sampling Level` <- as.numeric(VegBank_plot_data_GA$`Sampling Level`)
 
 
 VegBank_plot_data_GA2 <- VegBank_plot_data_GA %>%
