@@ -27,15 +27,18 @@ Import Data
 
 ```{r, message=FALSE}
 
-#Import existing NEON database from shared folder
-PAINLES_25Oct2020 <- read_csv("/home/shares/neon-inv/raw_VegBank_data/PAINLES_25Oct2020.csv")
+# Paths to data
+shared_data_dir <- "/home/shares/neon-inv"
+data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
+data_output <- file.path(shared_data_dir, "output_files")
 
-#Import VegBank Data from shared folder
-VegBank_plot_data_AL <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-ALplots.xlsx", sheet = "plot data")
-VegBank_plot_species_list_AL <- read_excel("/home/shares/neon-inv/raw_VegBank_data/CVS-ALplots.xlsx",  sheet = "plot species list")
+#New file path to shared folder
+VegBank_plot_data_AL <- read_excel(file.path(data_raw, "CVS-ALplots.xlsx"), sheet = "plot data")
+VegBank_plot_species_list_AL <- read_excel(file.path(data_raw, "CVS-ALplots.xlsx"),  sheet = "plot species list")
 
 #Import NEW Exotic Status Authority document
 KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority.csv")
+
 
 ```
 
@@ -43,10 +46,12 @@ Selecting the columns I will need from the VegBank data to make a new dataset th
 
 ```{r}
 
+VegBank_plot_data_AL$`Sampling Level` <- as.numeric(VegBank_plot_data_AL$`Sampling Level`)
+
 VegBank_plot_data_AL2 <- VegBank_plot_data_AL %>%
-  select('Author Observation Code', 'Observation Start Date', 'Real Latitude', 'Real Longitude', 'Taxon Observation Area', 'Sampling Level', 'previousObsCode') %>%
+  select('Author Observation Code', 'Observation Start Date', 'Real Latitude', 'Real Longitude', 'Public Latitude', 'Public Longitude', 'Taxon Observation Area', 'Sampling Level', 'previousObsCode') %>%
   rename( 'VegBankUniqueID' = 'Author Observation Code','Year' = 'Observation Start Date', 'Lat' = 'Real Latitude', 'Long' = 'Real Longitude' ) %>%
-  filter('Sampling Level' >  4)
+   filter(`Sampling Level` > 3)
 
 VegBank_plot_species_list_AL2 <- VegBank_plot_species_list_AL %>%
   select('authorObsCode', 'currentTaxonNameWithSp', 'cover', 'taxon_growthForm_short', 'taxon_woody', 'taxon_exotic',  'taxon_usda_code', 'taxon_woody') %>%
@@ -54,6 +59,8 @@ VegBank_plot_species_list_AL2 <- VegBank_plot_species_list_AL %>%
 
 VegBank_AL <- full_join(VegBank_plot_data_AL2, VegBank_plot_species_list_AL2, by = 'VegBankUniqueID')
 
+#Check to make sure only Sampling Levels 4 and 5 are included
+unique(VegBank_AL$`Sampling Level`)
 
 ```
 
@@ -94,6 +101,7 @@ VegBank_AL$bestname <- gsub("subsp.", "ssp.", VegBank_AL$bestname)
 VegBank_AL$bestname <- gsub("subspecies", "ssp.", VegBank_AL$bestname)
 VegBank_AL$bestname <- gsub("ssp..", "ssp.", VegBank_AL$bestname)
 
+VegBank_AL$bestname <- gsub("\\bsp\\.\\b", " ", VegBank_AL$bestname, ignore.case = FALSE)
 
 #strip white space
 VegBank_AL$bestname  <- trimws(VegBank_AL$bestname, which = c("right"))
@@ -274,6 +282,15 @@ no_match <- no_match %>% filter(PctCov > .10)
 no_match <- no_match %>% drop_na(bestname)
 
 
+to_be_matched <- no_match %>% 
+    filter(!str_detect(bestname,  ".\\+|\\+."))
+
+to_be_matched <- to_be_matched %>% 
+    filter(bestname != "Lichen") %>%
+    filter(bestname != "Liverwort") %>%
+    filter(bestname != "Bryophyte") %>%
+    filter(bestname != "{Unknown}") %>%
+ filter(!str_detect(bestname, "\\d"))
 
 ```
 
@@ -293,7 +310,7 @@ numbers <- paste0('-', no_match$`rownames(no_match)`)
 no_match <- no_match %>% 
 mutate('SpCode' = paste0("NOMATCH_AL", numbers)) %>% 
 select(-'rownames(no_match)') %>% 
-rename('Taxon Observation Area' = 'Taxon.Observation.Area', 'Sampling Level' = 'Sampling.Level')
+rename('Taxon Observation Area' = 'Taxon.Observation.Area', 'Sampling Level' = 'Sampling.Level', 'Public Latitude' = 'Public.Latitude', 'Public Longitude' = 'Public.Longitude')
 
 ```
 
@@ -315,8 +332,6 @@ VegBank_with_SpCode_AL1 <- VegBank_with_SpCode_AL1 %>%
 VegBank_with_SpCode_AL <- merge(VegBank_with_SpCode_AL1, no_match, all = TRUE)
 
 VegBank_with_SpCode_AL <- VegBank_with_SpCode_AL %>% rename('VegBank_ExoticStatus' = 'ExoticStatus', 'VegBank_GrowthForm' = 'GrowthForm')
-
-
 
 
 ```
@@ -347,29 +362,7 @@ VegBank_with_SpCode_AL <- VegBank_with_SpCode_AL %>%
 
 ```
 
-Making a new table, pulling out odd plot size values etc
 
-```{r}
-
-plot_sizes <- unique(VegBank_with_SpCode_AL$`Taxon Observation Area`)
-
-class(VegBank_with_SpCode_AL$`Taxon Observation Area`)
-
-#When I try to filter out the '-1' taxon observation area rows this way it does not work...even though the class of the row is numeric so it should recognize negative numbers as being less than 0.
-
-#*It did not like the '' I was using around the column name and I have no idea why not? It is working now 
-
-VegBank_with_SpCode_AL$`Taxon Observation Area` <- as.numeric(VegBank_with_SpCode_AL$`Taxon Observation Area`)
-
-odd_plot_sizes <- VegBank_with_SpCode_AL  %>%
-  filter(`Taxon Observation Area` < 0)
-
-#VegBank_AL5 <- VegBank_with_SpCode_AL %>%
-#  filter(`Taxon Observation Area` > 0)
-
-write.csv(odd_plot_sizes,"/home/shares/neon-inv/output_files/odd_plot_sizes_AL_KPEACH.csv", row.names = FALSE)
-
-```
 
 Renaming USDA_Duration column to just 'Duration' per Lais' request
 
