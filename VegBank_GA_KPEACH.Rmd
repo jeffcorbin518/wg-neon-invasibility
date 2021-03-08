@@ -427,7 +427,7 @@ write.csv(VegBank_GA5,"/home/shares/neon-inv/output_files/VegBank_GA_KPEACH_ALL_
 
 ```
 
-Exporting redcued data table
+Exporting reduced data table
 
 ```{r}
 
