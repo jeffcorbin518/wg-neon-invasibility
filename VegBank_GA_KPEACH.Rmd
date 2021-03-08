@@ -48,7 +48,7 @@ VegBank_plot_data_GA$'Sampling Level' <- as.numeric(VegBank_plot_data_GA$'Sampli
 VegBank_plot_data_GA2 <- VegBank_plot_data_GA %>%
   select('Author Observation Code', 'Observation Start Date', 'Real Latitude', 'Real Longitude', 'Public Latitude', 'Public Longitude', 'Taxon Observation Area', 'Sampling Level', 'previousObsCode') %>%
   rename( 'VegBankUniqueID' = 'Author Observation Code','Year' = 'Observation Start Date', 'Lat' = 'Real Latitude', 'Long' = 'Real Longitude' ) %>%
-  filter('Sampling Level' >  4)
+   filter(`Sampling Level` > 3)  
 
 VegBank_plot_species_list_GA2 <- VegBank_plot_species_list_GA %>%
   select('authorObsCode', 'currentTaxonNameWithSp', 'cover', 'taxon_growthForm_short', 'taxon_woody', 'taxon_exotic',  'taxon_usda_code', 'taxon_woody') %>%
