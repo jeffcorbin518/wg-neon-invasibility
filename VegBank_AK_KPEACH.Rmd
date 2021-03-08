@@ -30,10 +30,10 @@ data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
 data_output <- file.path(shared_data_dir, "output_files")
 
 #Import existing NEON database from shared folder
-PAINLES_25Oct2020 <- read_csv(file.path(data_raw,"PAINLES_25Oct2020.csv"),   
-                              col_types = cols(Site = col_character(),
-                                               NEONvst_status = col_character())
-                              )
+#PAINLES_25Oct2020 <- read_csv(file.path(data_raw,"PAINLES_25Oct2020.csv"),   
+ #                             col_types = cols(Site = col_character(),
+ #                                              NEONvst_status = col_character())
+ #                             )
 
 #New file path to shared folder
 VegBank_plot_data_AK <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"), sheet = "plot data")
@@ -45,45 +45,32 @@ KPEACH_ExoticStatus_authority <- read_csv(file.path(data_output,"KPEACH_ExoticSt
 ```
 
 
-## Making a look-up table of exotic status for species already present in the NEON database
+Selecting the columns I will need from the VegBank data to make a new dataset that will be compatible to merge with the PAINLES_25Oct2020 datasheet and renaming the columns to match up.
+
+I have in my meeting notes that I should only use rows with a "Sampling Level" of 4 or higher. 
 
 ```{r}
 
+VegBank_plot_data_AK$`Sampling Level` <- as.numeric(VegBank_plot_data_AK$`Sampling Level`)
 
-#getExoticStatus <- PAINLES_25Oct2020$ExoticStatus
-
-#names(getExoticStatus) <- PAINLES_25Oct2020$SpCode
-
-#So to see the exotic status of Achillea millefolium or ACMI2 you would use this 
-#getExoticStatus['ACMI2']
-
-#If you want just the value, without the key, add the unname function to that value you get back:
-
-#unname(getExoticStatus['ACMI2'])
-
-#Also just making a table...I guess I don't understand the difference between this and the lookup table. Maybe just slightly different functionality?
-
-#NEON_exotic_status <- PAINLES_25Oct2020 %>% select('SpCode', 'ExoticStatus') %>% rename('NEON_Exotic_Status' = 'ExoticStatus')
-
-#NEON_exotic_status <- NEON_exotic_status[!duplicated(NEON_exotic_status$SpCode), ]
-
-```
-
-Selecting the columns I will need from the VegBank data to make a new dataset that will be compatible to merge with the PAINLES_25Oct2020 datasheet and renaming the columns to match up
-
-```{r}
+unique(VegBank_plot_data_AK$`Sampling Level`)
 
 VegBank_plot_data_AK2 <- VegBank_plot_data_AK %>%
-  select('Author Observation Code', 'Observation Start Date', 'Real Latitude', 'Real Longitude', 'Taxon Observation Area', 'Sampling Level', 'previousObsCode') %>%
-  rename( 'VegBankUniqueID' = 'Author Observation Code','Year' = 'Observation Start Date', 'Lat' = 'Real Latitude', 'Long' = 'Real Longitude' ) %>%
-  filter('Sampling Level' >  4)  # JB - Explain why this threshold
+  select("Author Observation Code", "Observation Start Date", "Real Latitude", "Real Longitude", "Public Latitude", "Public Longitude", "Taxon Observation Area", "Sampling Level", "previousObsCode") %>%
+  rename( "VegBankUniqueID" = "Author Observation Code","Year" = "Observation Start Date", "Lat" = "Real Latitude", "Long" = "Real Longitude") %>%
+  filter(`Sampling Level` > 3)  
 
 
 VegBank_plot_species_list_AK2 <- VegBank_plot_species_list_AK %>%
   select('authorObsCode', 'currentTaxonNameWithSp', 'cover', 'taxon_growthForm_short', 'taxon_woody', 'taxon_exotic',  'taxon_usda_code', 'taxon_woody') %>%
   rename( 'VegBankUniqueID' = 'authorObsCode','bestname' = 'currentTaxonNameWithSp', 'PctCov' = 'cover', 'SpCode' = 'taxon_usda_code', 'ExoticStatus' = 'taxon_exotic', 'GrowthForm' = 'taxon_growthForm_short', 'Woodiness' = 'taxon_woody')
 
-VegBank_AK <- full_join(VegBank_plot_data_AK2, VegBank_plot_species_list_AK2, by = 'VegBankUniqueID') # JB - Full join might create duplicate. It is generally better to set up things to use left_join
+VegBank_AK <- left_join(VegBank_plot_data_AK2, VegBank_plot_species_list_AK2, by = 'VegBankUniqueID')
+
+
+#Check to make sure only Sampling Levels 4 and 5 are included
+unique(VegBank_AK$`Sampling Level`)
+
 
 
 ```
@@ -96,35 +83,13 @@ Misc Cleanup
 VegBank_AK <- VegBank_AK %>% 
   mutate('Year' = substr(VegBank_AK$Year, 1, 4))
 
-#Adding dataset and zone columns. The dataset names in the existing NEON database are pretty broad (ex. 'BLM') so VegBank seems ok but I could always add the region ID. VegBank_AK instead of VegBank if we want more precision here
+#Adding dataset and zone columns. The dataset names in the existing NEON database are pretty broad (ex. 'BLM') so VegBank seems ok, but I could always add the region ID. VegBank_AK instead of VegBank if we want more precision here
 VegBank_AK <- VegBank_AK %>% 
   add_column(Dataset = 'VEGBANK', .before = "VegBankUniqueID")  %>% 
   add_column(Zone = 'L48', .before = "VegBankUniqueID")
 
 ```
 
-*Not doing this anymore because the UniqueID needs to be used to tie each site to a set of environmental variables. 
-
-Adding sequential numbers to the UniqueID. The current VegBank_UniqueID is assigned to multiple species observed within the same plot at the same time. We met with the NEON working group and they want truly unique identifiers for each observation/row. So I am adding a '-' followed by sequential numbers (basically row numbers) to the VegBank_UniqueID to create a NEON 'UniqueID'.
-
-Julien, there is probably a cleaner way to achieve this right?
-
-```{r}
-
-#Adding  consecutive numbers to each UniqueID such that each row/observation has its own unique ID
-
-#Making a column of row numbers
-#VegBank_AK <- cbind(rownames(VegBank_AK), data.frame(VegBank_AK, row.names=NULL))
-
-#Adding a - so each UniqueID will be preserved it will just have a dash followed by sequential numbers
-#numbers <- paste0('-', VegBank_AK$`rownames(VegBank_AK)`)
-
-#Final step
-#VegBank_AK <- VegBank_AK %>% 
-#add_column('UniqueID' = paste0(VegBank_AK$VegBankUniqueID, numbers), .before = 'Dataset') %>% 
-#select(-'rownames(VegBank_AK)')
-
-```
 
 Recoding "Native" and "Exotic" statuses in the VegBank data to match the NEON data
 
@@ -147,7 +112,7 @@ Recoding "Y" (which indicates, YES this species is woody) to "Woody" to match th
 #Making the Woodiness column math the NEON 
 VegBank_AK$Woodiness <- gsub("Y", "Woody", VegBank_AK$Woodiness)
 
-# Give any row with a GrowthForm that includes "Herb" (ex. "Herb", "Herb Vine", "Herb Shrub") a Woodiness classification of ""Herbaceous". 
+# Give any row with a GrowthForm that includes "Herb" (ex. "Herb", "Herb Vine", "Herb Shrub") a Woodiness classification of ""Herbaceous"". 
 VegBank_AK <- VegBank_AK  %>% 
   mutate(Woodiness = ifelse(GrowthForm %in% c("Herb", "Herb Vine", "Herb Shrub", "Herb Shrub Vine"), 'Herbaceous', Woodiness))
 
@@ -166,6 +131,7 @@ VegBank_AK$bestname <- gsub("subsp.", "ssp.", VegBank_AK$bestname)
 VegBank_AK$bestname <- gsub("subspecies", "ssp.", VegBank_AK$bestname)
 VegBank_AK$bestname <- gsub("ssp..", "ssp.", VegBank_AK$bestname)
 
+VegBank_AK$bestname <- gsub("\\bsp\\.\\b", " ", VegBank_AK$bestname, ignore.case = FALSE)
 
 #strip white space
 VegBank_AK$bestname  <- trimws(VegBank_AK$bestname, which = c("right"))
@@ -175,6 +141,7 @@ VegBank_AK$bestname  <- trimws(VegBank_AK$bestname, which = c("right"))
 
 Making a data table with taxonomic names that include multiple specific epithets
 
+The USDA Plant list includes SOME hybrids so we want to make sure we've cleaned up the rows that list multiple specific epithets or multiple genera to maximize the probability of finding a match with the NEON/USDA plant list
 
 ```{r}
 
@@ -187,8 +154,8 @@ VegBank_multiple_species_AK$bestname <- gsub(".\\[|\\]", " ", VegBank_multiple_s
 #Replacing  + with x because that is how USDA Plant List denotes hybrids
 VegBank_multiple_species_AK$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_AK$bestname)
 
-# Save as csv for Jeff to inspect
-# write.csv(VegBank_multiple_species_AK, file.path(data_output,"multiple_sp_AK_KPEACH.csv"), row.names = FALSE)
+#Save as csv for Jeff to inspect
+write.csv(VegBank_multiple_species_AK ,"/home/shares/neon-inv/output_files/multiple_sp_AK_KPEACH.csv", row.names = FALSE)
 
 
 ```
@@ -200,60 +167,8 @@ VegBank_AK$bestname  <- str_replace_all(VegBank_AK$bestname , "\\*|\\[|\\]", "")
 
 ```
 
-Commenting this out for now. Will return to it if I need to.
 
-The USDA Plant List, when exported from the advanced search function, does not include the genus symbol for these genera. They are on the website (which is how I got the codes) but for some reason they are not exported with the list. Other genera ARE exported (Abelia = ABELI) so I know it was not a search error. Also, species within these genera are exported with the list (ex. Viola adunca = VIAD) just not the genus itself. So I don't think a chunk of the list is being cut out or not exporting properly. 
-
-```{r}
-
-#Idk why it does not include some genera so I am going to fix manually
-#USDA_plant_list_ALL <- USDA_plant_list_ALL %>% 
-#add_row(bestname = 'Viola', SpCode = 'VIOLA', USDA_Exotic_Status = "NI")
-
-#USDA_plant_list_ALL <- USDA_plant_list_ALL %>% 
-#add_row(bestname = 'Polygonum', SpCode = 'POLYG4', USDA_Exotic_Status = "NI")
-
-```
-
-
-
-Here I am trying to match the native status codes in the NEON database with the native status codes within the USDA plant list. In other words, are all of the species listed as "I" in the NEON database also listed as "I" in the USDA database?
-
-```{r}
-
-#test <- full_join(USDA_plant_list_ALL, NEON_exotic_status, by = 'SpCode')
-
-#Making sure both columns are the same class so they can be compared
-#test$NEON_Exotic_Status <- as.character(test$NEON_Exotic_Status)
-
-#test$USDA_Exotic_Status <- as.character(test$USDA_Exotic_Status)
-
-#They do not match exactly
-#all(test$NEON_Exotic_Status == test$USDA_Exotic_Status)
-
-#30,747 rows do not match the USDA assignation of exotic status
-#Dont_match1 <- test[which(test[,'NEON_Exotic_Status'] != test[,'USDA_Exotic_Status']), ]
-
-#Dont_match2 <- Dont_match1 %>% add_count(bestname, sort = TRUE)
-
-#Dont_match <- Dont_match2[!duplicated(Dont_match2$bestname), ]
-
-#373 species in the NEON database have a different exotic status in NEON then they do in the USDA plant list
-#dont_match_species <- unique(Dont_match$bestname)
-
-#9,258 species in the NEON database
-#total_species <- unique(PAINLES_25Oct2020$bestname)
-
-#summary(Dont_match$NEON_Exotic_Status)
-
-#725,513 rows DO match exactly!
-#matches <- test[which(test[,'NEON_Exotic_Status'] == test[,'USDA_Exotic_Status']), ]
-
-#write.csv(Dont_match,"/home/shares/neon-inv/output_files/Different_ExoticStatus_NEON_USDA_KPEACH.csv", row.names = FALSE)
-
-```
-
-Manually fixing some species
+Manually fixing some species. A quick search on USDA's website (https://plants.usda.gov/) can usually tell me what they correct name should be but sometimes it requires a little more searching. For some species that required a little more sleuthing I included a commented out link to a reference website that would help anyone reading this understand why I made the choice I did. 
 
 ```{r}
 
@@ -292,7 +207,6 @@ VegBank_AK$bestname <- gsub("Populus deltoides ssp.deltoides", "Populus deltoide
 VegBank_AK$bestname <- gsub("Maianthemum racemosum ssp.racemosum", "Maianthemum racemosum", VegBank_AK$bestname)
 	
 
-
 #strip white space
 VegBank_AK$bestname  <- trimws(VegBank_AK$bestname, which = c("right"))
 
@@ -314,6 +228,17 @@ no_match <- no_match %>% filter(PctCov > .10)
 
 no_match <- no_match %>% drop_na(bestname)
 
+to_be_matched <- no_match %>% 
+    filter(!str_detect(bestname,  ".\\+|\\+."))
+
+to_be_matched <- to_be_matched %>% 
+    filter(bestname != "Lichen") %>%
+    filter(bestname != "Liverwort") %>%
+    filter(bestname != "Bryophyte") %>%
+    filter(bestname != "{Unknown}") %>%
+ filter(!str_detect(bestname, "\\d"))
+
+
 ```
 
 Adding made up SpCodes for the hybrid rows
@@ -332,7 +257,7 @@ numbers <- paste0('-', no_match$`rownames(no_match)`)
 no_match <- no_match %>% 
 mutate('SpCode' = paste0("NOMATCH_AK", numbers)) %>% 
 select(-'rownames(no_match)') %>% 
-rename('Taxon Observation Area' = 'Taxon.Observation.Area', 'Sampling Level' = 'Sampling.Level')
+rename('Taxon Observation Area' = 'Taxon.Observation.Area', 'Sampling Level' = 'Sampling.Level', 'Public Latitude' = 'Public.Latitude', 'Public Longitude' = 'Public.Longitude')
 
 ```
 
@@ -341,7 +266,6 @@ Adding species codes to rows with matches
 
 ```{r}
 
-#613
 
 VegBank_with_SpCode_AK1 <- dplyr::inner_join(VegBank_AK, KPEACH_ExoticStatus_authority, by="bestname")
 
@@ -354,8 +278,6 @@ VegBank_with_SpCode_AK1 <- VegBank_with_SpCode_AK1 %>%
 VegBank_with_SpCode_AK <- merge(VegBank_with_SpCode_AK1, no_match, all = TRUE)
 
 VegBank_with_SpCode_AK <- VegBank_with_SpCode_AK %>% rename('VegBank_ExoticStatus' = 'ExoticStatus', 'VegBank_GrowthForm' = 'GrowthForm')
-
-
 
 
 ```
@@ -387,72 +309,6 @@ VegBank_with_SpCode_AK <- VegBank_with_SpCode_AK %>%
 ```
 
 
-
-Don't need this anymore (I don't think) but leaving it until I am sure
-
-```{r}
-
-
-#this gives me a table with all the info I need. Three columns for "Exotic Status": VegBank Exotic Status, USDA exotic status, and NEON exotic status
-
-#VegBank_AK3 <- dplyr::left_join(VegBank_with_SpCode_AK, NEON_exotic_status, by = 'SpCode')
-
-#VegBank_AK3 <- unique(VegBank_AK3)
-
-#I am filling the NEW_ExoticStatus column with the values of the NEON_exotic_status column (where there are values) and for any NAs in the NEON_exotic_status column fill with the values from the USDA_exotic_status column
-
-#VegBank_AK4 <- VegBank_AK3 %>%
-#  mutate('NEW_ExoticStatus' = ifelse(!is.na(NEON_Exotic_Status), NEON_Exotic_Status, USDA_Exotic_Status))
-
-#Yassssssssss!! VICTORY
-#unique(VegBank_AK4$NEW_ExoticStatus)
-
-
-```
-
-
-Making a new table, pulling out odd plot size values etc
-
-```{r, eval=FLASE}
-
-plot_sizes <- unique(VegBank_with_SpCode_AK$`Taxon Observation Area`)
-
-class(VegBank_with_SpCode_AK$`Taxon Observation Area`)
-
-#When I try to filter out the '-1' taxon observation area rows this way it does not work...even though the class of the row is numeric so it should recognize negative numbers as being less than 0.
-
-#*It did not like the '' I was using around the column name and I have no idea why not? It is working now 
-
-VegBank_with_SpCode_AK$`Taxon Observation Area` <- as.numeric(VegBank_with_SpCode_AK$`Taxon Observation Area`)
-
-odd_plot_sizes <- VegBank_with_SpCode_AK  %>%
-  filter(`Taxon Observation Area` < 0)
-
-#VegBank_AK5 <- VegBank_with_SpCode_AK %>%
-#  filter(`Taxon Observation Area` > 0)
-
-
-# write.csv(odd_plot_sizes, file.path(data_output, "odd_plot_sizes_AK_KPEACH.csv"), row.names = FALSE)
-
-```
-
-
-Making a table for NEON working group that shows which rows from the AK dataset do not have matching USDA and NEON exotic statuses
-
-```{r, eval=FLASE}
-
-#46 rows do not match the USDA assignation of exotic status
-#dont_match_usda_neon_ExoticStatus <- VegBank_AK5[which(VegBank_AK5[,'NEON_Exotic_Status'] != VegBank_AK5[,'USDA_Exotic_Status']), ]
-
-#dont_match_usda_neon_ExoticStatus$PctCov <- as.numeric(dont_match_usda_neon_ExoticStatus$PctCov)
-
-#mismatch_names <- unique(dont_match_usda_neon_ExoticStatus$bestname)
-
-#mismatch_names
-#As csv
-#write.csv(dont_match_usda_neon_ExoticStatus,"/home/shares/neon-inv/output_files/Different_ExoticStatus_VegBank_AK_KPEACH.csv", row.names = FALSE)
-```
-
 Renaming USDA_Duration column to just 'Duration' per Lais' request
 
 ```{r}
@@ -466,8 +322,11 @@ VegBank_AK5 <- VegBank_with_SpCode_AK %>%
 
 ```{r, eval=FALSE}
 
-#As csv
-write.csv(VegBank_AK5, file.path(data_output,"/VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE))
+#This line is not working
+write.csv(VegBank_AK5, file.path(data_output,"VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE))
+
+#Manual save
+write.csv(VegBank_AK5,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE)
 
 ```
 
@@ -476,8 +335,11 @@ write.csv(VegBank_AK5, file.path(data_output,"/VegBank_AK_KPEACH_ALL_COLS.csv", 
 VegBank_AK6 <- VegBank_AK5 %>%
   select(-'VegBank_GrowthForm', -'VegBank_ExoticStatus', -'NEON_GrowthForm', -'USDA_Growth_Form', -'USDA_Exotic_Status')
 
+#Just using this to see if any rows are dropped because there is no latitute and longitude. There really ought to be lat and long so just trying to catch that here
+VegBank_AK6 <- VegBank_AK6 %>% drop_na(Lat)
+
 #As csv
-write.csv(VegBank_AK6, file.path(data_output,"VegBank_AK_KPEACH_reduced.csv", row.names = FALSE))
+write.csv(VegBank_AK6,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
 
 write.csv(VegBank_AK6,"VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
 
