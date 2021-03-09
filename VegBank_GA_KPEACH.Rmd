@@ -59,6 +59,10 @@ VegBank_GA <- left_join(VegBank_plot_data_GA2, VegBank_plot_species_list_GA2, by
 #Check to make sure only Sampling Levels 4 and 5 are included
 unique(VegBank_GA$`Sampling Level`)
 
+
+```
+```{r}
+
 #Reducing sampling date to just the year to match NEON data
 VegBank_GA <- VegBank_GA %>% 
   mutate('Year' = substr(VegBank_GA$Year, 1, 4))
@@ -79,8 +83,6 @@ VegBank_GA$Woodiness <- gsub("Y", "Woody", VegBank_GA$Woodiness)
 VegBank_GA <- VegBank_GA  %>% 
   mutate(Woodiness = ifelse(GrowthForm %in% c("Herb", "Herb Vine", "Herb Shrub", "Herb Shrub Vine"), 'Herbaceous', Woodiness))
 
-#This just replaces all NA's, any row that was not explicitly labeled as 'Woody" as Herbaceous which could be wrong so I did not run it
-#VegBank$Woodiness<-  replace_na(VegBank$Woodiness, "Herbaceous")
 
 #Making sure all subspecies are noted correctly. Fixing some common errors that would prevent the species name from matching with the USDA plant list
 
@@ -95,7 +97,11 @@ VegBank_GA$bestname  <- trimws(VegBank_GA$bestname, which = c("right"))
 
 
 
+
+
 ```
+
+
 
 Making a datatable with taxonomic names that include multiple specific epithets
 

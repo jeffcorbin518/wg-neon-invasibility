@@ -36,11 +36,12 @@ Selecting the columns I will need from the VegBank data to make a new dataset th
 
 ```{r}
 
+VegBank_plot_data_FL$'Sampling Level' <- as.numeric(VegBank_plot_data_FL$'Sampling Level')
 
 VegBank_plot_data_FL2 <- VegBank_plot_data_FL %>%
   select('Author Observation Code', 'Observation Start Date', 'Real Latitude', 'Real Longitude', 'Taxon Observation Area', 'Sampling Level', 'previousObsCode') %>%
   rename( 'UniqueID' = 'Author Observation Code','Year' = 'Observation Start Date', 'Lat' = 'Real Latitude', 'Long' = 'Real Longitude' ) %>%
-  filter('Sampling Level' > 4)
+  filter(`Sampling Level` > 3)
 
 VegBank_plot_species_list_FL2 <- VegBank_plot_species_list_FL %>%
   select('authorObsCode', 'currentTaxonNameWithSp', 'cover', 'taxon_growthForm_short', 'taxon_woody', 'taxon_exotic', 'taxon_usda_growthForm', 'taxon_usda_code', 'taxon_woody') %>%

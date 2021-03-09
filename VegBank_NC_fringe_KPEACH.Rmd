@@ -24,9 +24,17 @@ Reading in North Carolina 'Fringe' Plots VegBank Data (from a zip file delivered
 
 ```{r, message = FALSE}
 
+# Paths to data
+shared_data_dir <- "/home/shares/neon-inv"
+data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
+data_output <- file.path(shared_data_dir, "output_files")
 
-VegBank_plot_data_NC_fringe <- read_excel("CVS-NCFringePlots.xlsx", sheet = "plot data")
-VegBank_plot_species_list_NC_fringe  <- read_excel("CVS-NCFringePlots.xlsx",  sheet = "plot species list")
+#New file path to shared folder
+VegBank_plot_data_NC_fringe <- read_excel(file.path(data_raw, "CVS-NCFringePlots.xlsx"), sheet = "plot data")
+VegBank_plot_species_list_NC_fringe  <- read_excel(file.path(data_raw, "CVS-NCFringePlots.xlsx"),  sheet = "plot species list")
+
+#Import NEW Exotic Status Authority document
+KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority.csv")
 
 ```
 
@@ -34,24 +42,28 @@ Selecting the columns I will need from the VegBank data to make a new dataset th
 
 ```{r}
 
+VegBank_plot_data_NC_fringe$`Sampling Level` <- as.numeric(VegBank_plot_data_NC_fringe$`Sampling Level`)
 
-VegBank_plot_data_NC_fringe2 <- VegBank_plot_data_NC_fringe  %>%
-  select('Author Observation Code', 'Observation Start Date', 'Real Latitude', 'Real Longitude', 'Taxon Observation Area', 'Sampling Level', 'previousObsCode') %>%
-  rename( 'UniqueID' = 'Author Observation Code','Year' = 'Observation Start Date', 'Lat' = 'Real Latitude', 'Long' = 'Real Longitude' ) %>%
-  filter('Sampling Level' >  4)
+VegBank_plot_data_NC_fringe2 <- VegBank_plot_data_NC_fringe %>%
+  select('Author Observation Code', 'Observation Start Date', 'Real Latitude', 'Real Longitude', 'Public Latitude', 'Public Longitude', 'Taxon Observation Area', 'Sampling Level', 'previousObsCode') %>%
+  rename( 'VegBankUniqueID' = 'Author Observation Code','Year' = 'Observation Start Date', 'Lat' = 'Real Latitude', 'Long' = 'Real Longitude' ) %>%
+   filter(`Sampling Level` > 3)  
 
 VegBank_plot_species_list_NC_fringe2 <- VegBank_plot_species_list_NC_fringe %>%
-  select('authorObsCode', 'currentTaxonNameWithSp', 'cover', 'taxon_growthForm_short', 'taxon_woody', 'taxon_exotic', 'taxon_usda_growthForm', 'taxon_usda_code', 'taxon_woody') %>%
-  rename( 'UniqueID' = 'authorObsCode','bestname' = 'currentTaxonNameWithSp', 'PctCov' = 'cover', 'SpCode' = 'taxon_usda_code', 'ExoticStatus' = 'taxon_exotic', 'GrowthForm' = 'taxon_growthForm_short', 'Woodiness' = 'taxon_woody')
+  select('authorObsCode', 'currentTaxonNameWithSp', 'cover', 'taxon_growthForm_short', 'taxon_woody', 'taxon_exotic',  'taxon_usda_code', 'taxon_woody') %>%
+  rename( 'VegBankUniqueID' = 'authorObsCode','bestname' = 'currentTaxonNameWithSp', 'PctCov' = 'cover', 'SpCode' = 'taxon_usda_code', 'ExoticStatus' = 'taxon_exotic', 'GrowthForm' = 'taxon_growthForm_short', 'Woodiness' = 'taxon_woody')
 
-VegBank_NC_fringe <- full_join(VegBank_plot_data_NC_fringe2, VegBank_plot_species_list_NC_fringe2, by = 'UniqueID')
+VegBank_NC_fringe <- left_join(VegBank_plot_data_NC_fringe2, VegBank_plot_species_list_NC_fringe2, by = 'VegBankUniqueID')
+
+#Check to make sure only Sampling Levels 4 and 5 are included
+unique(VegBank_NC_fringe$`Sampling Level`)
 
 #Reducing sampling date to just the year to match NEON data
 VegBank_NC_fringe <- VegBank_NC_fringe %>% 
   mutate('Year' = substr(VegBank_NC_fringe$Year, 1, 4))
 
 #Adding a site column
-VegBank_NC_fringe <- VegBank_NC_fringe %>% add_column(Dataset = 'VEGBANK', .before = "UniqueID")  %>% add_column(Zone = 'L48', .before = "UniqueID")
+VegBank_NC_fringe <- VegBank_NC_fringe %>% add_column(Dataset = 'VEGBANK', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
 
 #Making exotic status compatible to NEON data
 VegBank_NC_fringe$ExoticStatus <- gsub("native", "N", VegBank_NC_fringe$ExoticStatus)
@@ -66,14 +78,13 @@ VegBank_NC_fringe$Woodiness <- gsub("Y", "Woody", VegBank_NC_fringe$Woodiness)
 VegBank_NC_fringe <- VegBank_NC_fringe  %>% 
   mutate(Woodiness = ifelse(GrowthForm %in% c("Herb", "Herb Vine", "Herb Shrub", "Herb Shrub Vine"), 'Herbaceous', Woodiness))
 
-#This just replaces all NA's, any row that was not explicitly labeled as 'Woody" as Herbaceous which could be wrong so I did not run it
-#VegBank$Woodiness<-  replace_na(VegBank$Woodiness, "Herbaceous")
-
 #Making sure all subspecies are noted correctly. Fixing some common errors that would prevent the species name from matching with the USDA plant list
 
 VegBank_NC_fringe$bestname <- gsub("subsp.", "ssp.", VegBank_NC_fringe$bestname)
 VegBank_NC_fringe$bestname <- gsub("subspecies", "ssp.", VegBank_NC_fringe$bestname)
 VegBank_NC_fringe$bestname <- gsub("ssp..", "ssp.", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("\\bsp\\.\\b", " ", VegBank_NC_fringe$bestname, ignore.case = FALSE)
 
 #strip white space
 VegBank_NC_fringe$bestname  <- trimws(VegBank_NC_fringe$bestname, which = c("right"))
@@ -94,54 +105,192 @@ VegBank_multiple_species_NC_fringe$bestname <- gsub(".\\[|\\]", " ", VegBank_mul
 VegBank_multiple_species_NC_fringe$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_NC_fringe$bestname)
 
 #Save as csv for Jeff to inspect
-write.csv(VegBank_multiple_species_NC_fringe ,"multiple_sp_NC_fringe_KPEACH.csv", row.names = FALSE)
+#write.csv(VegBank_multiple_species_NC_fringe ,"multiple_sp_NC_fringe_KPEACH.csv", row.names = FALSE)
 
 ```
 
-Removing these rows from the main data set until I can find a solution
+Removing the brackets from these rows from the main data set until I can find a solution. 
 ```{r}
 
-VegBank_NC_fringe <- VegBank_NC_fringe %>%
-    filter(!str_detect(bestname,  ".\\[|\\]."))
+VegBank_NC_fringe$bestname  <- str_replace_all(VegBank_NC_fringe$bestname , "\\*|\\[|\\]", "")
+
+VegBank_NC_fringe$bestname  <- str_replace_all(VegBank_NC_fringe$bestname , "\\*|\\{|\\}", "")
 
 ```
 
-Read in USDA Plants list with species codes
+Manually fixing some species names. I fixed all the names I could but this site had a lot of Family names (which don't have codes)
 
 ```{r}
 
+VegBank_NC_fringe$bestname <- gsub("Cartrema americanum", "Cartrema americana", VegBank_NC_fringe$bestname)
 
-USDA_plant_list_ALL <- read.delim2("USDA_all_with_syn.txt",  sep = ",")
+VegBank_NC_fringe$bestname <- gsub("Hamamelis virginiana var. virginiana", "Hamamelis virginiana", VegBank_NC_fringe$bestname)
 
-USDA_list_w_exotic_status <- read.delim2("USDA_list_w_exotic_status.txt",  sep = ",")
+VegBank_NC_fringe$bestname <- gsub("Toxicodendron radicans var. radicans", "Toxicodendron radicans", VegBank_NC_fringe$bestname)
 
+#http://www.namethatplant.net/plantdetail.shtml?plant=988
+VegBank_NC_fringe$bestname <- gsub("Opuntia mesacantha", "Opuntia humifusa", VegBank_NC_fringe$bestname)
 
-#Only keeping L48 Native status which is always the first listed
-USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 0, 6)
+VegBank_NC_fringe$bestname <- gsub("Onoclea sensibilis var. sensibilis", "Onoclea sensibilis", VegBank_NC_fringe$bestname)
 
-USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 5, 5)
+VegBank_NC_fringe$bestname <- gsub("Pleopeltis michauxiana", "Pleopeltis polypodioides ssp. michauxiana", VegBank_NC_fringe$bestname)
 
-USDA_list_w_exotic_status$Native.Status <- gsub("[()]", "", USDA_list_w_exotic_status$Native.Status)
+VegBank_NC_fringe$bestname <- gsub("Gonolobus suberosus var. granulatus", "Matelea gonocarpos", VegBank_NC_fringe$bestname)
 
-USDA_plant_list_ALL <- USDA_list_w_exotic_status %>%
-  select(-"Symbol") %>%
-  rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol', "USDA_Exotic_Status" = "Native.Status", "USDA_Growth_Form" = "Growth.Habit", "USDA_Duration" = "Duration") 
+VegBank_NC_fringe$bestname <- gsub("Arthraxon hispidus var. hispidus", "Arthraxon hispidus", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Magnolia virginiana var. virginiana", "Magnolia virginiana", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Iva frutescens var. frutescens", "Iva frutescens ssp. frutescens", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Gonolobus suberosus var. suberosus", "Matelea gonocarpos", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Aureolaria levigata", "Aureolaria laevigata", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Paronychia baldwinii ssp.riparia", "Paronychia baldwinii ssp. riparia", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Hypericum mutilum var. mutilum", "Hypericum mutilum", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Clitoria mariana var. mariana", "Clitoria mariana", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Dichanthelium portoricense ssp.patulum", "Dichanthelium sabulorum var. thinium", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Ionactis linariifolia", "Ionactis linariifolius", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Dichanthelium chamaelonche ssp.chamaelonche", "Dichanthelium dichotomum var. breve", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Phoradendron leucarpum ssp.leucarpum", "Phoradendron leucarpum", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Chamaecyparis thyoides var. thyoides", "Chamaecyparis thyoides", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Lepidium virginicum ssp.virginicum", "Lepidium virginicum var. virginicum", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Arenaria lanuginosa var. lanuginosa", "Arenaria lanuginosa ssp. lanuginosa var. lanuginosa", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Verbascum thapsus ssp.thapsus", "Verbascum thapsus", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Veronica peregrina var. peregrina", "Veronica peregrina ssp. peregrina", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Festuca rubra ssp.rubra", "Festuca rubra ssp. rubra", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Paronychia baldwinii ssp.baldwinii", "Paronychia baldwinii ssp. baldwinii", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Triplasis purpurea var. purpurea", "Triplasis purpurea", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Galactia volubilis var. volubilis", "Galactia volubilis", VegBank_NC_fringe$bestname)
+
+#https://www.itis.gov/servlet/SingleRpt/SingleRpt?search_topic=TSN&search_value=893824#null
+VegBank_NC_fringe$bestname <- gsub("Seutera angustifolia", "Cynanchum angustifolium", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Galium obtusum var. obtusum", "Galium obtusum ssp. obtusum", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Opuntia humifusa ssp.mesacantha", "Opuntia humifusa", VegBank_NC_fringe$bestname)
+
+#https://www.marylandbiodiversity.com/viewSpecies.php?species=4078
+VegBank_NC_fringe$bestname <- gsub("Hymenachne hemitomon", "Panicum hemitomon", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Nymphaea odorata ssp.odorata", "Nymphaea odorata ssp. odorata", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Tripsacum dactyloides var. dactyloides", "Tripsacum dactyloides", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Hedera helix var. helix", "Hedera helix", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Coleataenia longifolia ssp.longifolia", "Panicum rigidulum var. pubescens", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Pontederia cordata var. cordata", "Pontederia cordata", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Oenothera fruticosa var. fruticosa", "Oenothera fruticosa ssp. fruticosa", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Sagittaria latifolia var. latifolia", "Sagittaria latifolia", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Ulmus americana var. americana", "Ulmus americana", VegBank_NC_fringe$bestname)
+
+#https://www.itis.gov/servlet/SingleRpt/SingleRpt;jsessionid=301BE5D420CAB47EF9DE4C2B0476FA5E?search_topic=TSN&search_value=1061799#null
+VegBank_NC_fringe$bestname <- gsub("Dichanthelium neuranthum", "Dichanthelium aciculare", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Galium tinctorium var. tinctorium", "Galium tinctorium", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Gaillardia pulchella var. drummondii", "Gaillardia pulchella", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Dichanthelium commutatum var. commutatum", "Dichanthelium commutatum", VegBank_NC_fringe$bestname)
+
+#https://plants.ces.ncsu.edu/plants/pourthiaea-villosa/
+VegBank_NC_fringe$bestname <- gsub("Pourthiaea villosa", "Photinia villosa", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Erianthus", "Saccharum", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Saccharum giganteus", "Saccharum giganteum", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Ilex decidua var. decidua", "Ilex decidua", VegBank_NC_fringe$bestname)
+
+#https://florida.plantatlas.usf.edu/Plant.aspx?id=3967
+VegBank_NC_fringe$bestname <- gsub("Solidago virgata", "Solidago stricta", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Rumex crispus ssp.crispus", "Rumex crispus ssp. crispus", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Glyceria striata var. striata", "Glyceria striata", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Eragrostis secundiflora ssp.oxylepis", "Eragrostis secundiflora ssp. oxylepis", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Kali soda", "Salsola kali ssp. kali", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Styrax americanus var. americanus", "Styrax americanus", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Dichanthelium dichotomum var. ramulosum", "Dichanthelium dichotomum var. dichotomum", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Morella pumila", "Morella cerifera", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Viola acaulescent", "Viola", VegBank_NC_fringe$bestname)
+
 
 ```
 
-
-Table of species with no match in USDA table
+Table of species with no match in KPEACH_ExoticStatus_authority table
 
 ```{r}
 
-#1,993 rows with no match
-no_match <- dplyr::anti_join(VegBank_NC_fringe,USDA_plant_list_ALL, by="bestname")
+#44 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed)
+no_match <- dplyr::anti_join(VegBank_NC_fringe, KPEACH_ExoticStatus_authority, by="bestname")
 
-#Reducing all rows of the no match file to just the genus so that USDA can find matches
-no_match$bestname <- stringr::word(no_match$bestname, 1)
+#Filtering out any row with <.10 in the cover column
+no_match$PctCov <- as.numeric(no_match$PctCov) 
 
-#Save as csv for Jeff to inspect
-write.csv(no_match,"no_match_NC_fringe_KPEACH.csv", row.names = FALSE)
+#Removing all rows with less than 10% cover
+no_match <- no_match %>% filter(PctCov > .10)
+
+no_match <- no_match %>% drop_na(bestname)
+
+to_be_matched <- no_match %>% 
+    filter(!str_detect(bestname,  ".\\+|\\+."))
+
+to_be_matched <- to_be_matched %>% 
+    filter(bestname != "Lichen") %>%
+    filter(bestname != "Liverwort") %>%
+    filter(bestname != "Bryophyte") %>%
+    filter(bestname != "{Unknown}") %>%
+  filter(bestname != "Unknown") %>%
+ filter(!str_detect(bestname, "\\d"))
+
+
+```
+
+Adding made up SpCodes for the hybrid rows
+
+```{r}
+
+#Adding new 'fake' species codes for the rows with no species codes (because they are hybrids or observer was uncertain of ID)
+
+#Making a column of row numbers
+no_match <- cbind(rownames(no_match), data.frame(no_match, row.names=NULL))
+
+#Adding a - so each new species code will just have a 'NOMATCH' then a dash followed by sequential numbers
+numbers <- paste0('-', no_match$`rownames(no_match)`)
+
+#Final step
+no_match <- no_match %>% 
+mutate('SpCode' = paste0("NOMATCH_NC_Fringe", numbers)) %>% 
+select(-'rownames(no_match)') %>% 
+rename('Taxon Observation Area' = 'Taxon.Observation.Area', 'Sampling Level' = 'Sampling.Level', 'Public Latitude' = 'Public.Latitude', 'Public Longitude' = 'Public.Longitude')
 
 ```
 
@@ -149,40 +298,72 @@ Adding species codes to rows with matches
 
 ```{r}
 
-#11,467
-VegBank_with_SpCode_NC_fringe1 <- dplyr::inner_join(VegBank_NC_fringe, USDA_plant_list_ALL, by="bestname")
 
-VegBank_with_SpCode_NC_fringe2 <- dplyr::inner_join(no_match, USDA_plant_list_ALL, by="bestname")
+VegBank_with_SpCode_NC_fringe1 <- dplyr::inner_join(VegBank_NC_fringe, KPEACH_ExoticStatus_authority, by="bestname")
 
-VegBank_with_SpCode_NC_fringe <- merge(VegBank_with_SpCode_NC_fringe1, VegBank_with_SpCode_NC_fringe2, all = TRUE)
-
-
-VegBank_with_SpCode_NC_fringe <- VegBank_with_SpCode_NC_fringe %>%
-  select(-taxon_usda_growthForm, -SpCode.x) %>%
+VegBank_with_SpCode_NC_fringe1 <- VegBank_with_SpCode_NC_fringe1 %>%
+  select(-SpCode.x) %>%
   rename("SpCode" = "SpCode.y")
 
-#Now lets see how many no match rows are left
-#0! Yay!
-no_match2 <- dplyr::anti_join(VegBank_with_SpCode_NC_fringe,USDA_plant_list_ALL, by="bestname")
+#Merging the df that DOES has correct species codes with the no_match table I made with the newly invented species codes
+
+VegBank_with_SpCode_NC_fringe <- merge(VegBank_with_SpCode_NC_fringe1, no_match, all = TRUE)
+
+VegBank_with_SpCode_NC_fringe <- VegBank_with_SpCode_NC_fringe %>% rename('VegBank_ExoticStatus' = 'ExoticStatus', 'VegBank_GrowthForm' = 'GrowthForm')
 
 ```
 
-Making a new table, pulling out odd plot size values etc
+I also kept all 3 GrowthForm columns. The 'VegBank_GrowthForm' is the growth form column that came with the data from Bob Peet/Jeff Corbin. The 'NEON_GrowthForm' column came from the taxonomy_temp10_revised.csv file. The 'USDA_GrowthForm' column came from the USDA plant list. I assume that the NEON group wants me to follow the same procedure as the exotic status column and use the NEON_GrowthForm whenever possible and then the USDA_GrowthForm for any new species. However, in a previous email Eve told me to use the USDA growth form and reduce it to only one word (ex. 'Forb/herb' would become 'Forb'). There are many rows in the NEON_GrowthForm column that do not follow this rule (they are more than one word). The READ ME file says to use the GrowthForm from the taxonomy_temp10_revised.csv file but also has a bullet point saying "Rule for growth form was to take the first thing listed (e.g., ‘Subshrub, Shrub’ became ‘Subshrub’)". So I made a new column called NEW_GrowthForm that uses the NEON_GrowthForm when available but the USDA_GrowthForm for new species. 
 
 ```{r}
 
-plot_sizes <- unique(VegBank_with_SpCode_NC_fringe$`Taxon Observation Area`)
+#Removing punctuation so I can extract only the first word from this column
+VegBank_with_SpCode_NC_fringe$NEON_GrowthForm <- gsub('[[:punct:]]', " ", VegBank_with_SpCode_NC_fringe$NEON_GrowthForm)
 
-odd_plot_sizes <- VegBank_with_SpCode_NC_fringe %>%
-  filter(`Taxon Observation Area` == '-1')
+#Extracting first word
+VegBank_with_SpCode_NC_fringe$NEON_GrowthForm <- stringr::word(VegBank_with_SpCode_NC_fringe$NEON_GrowthForm, 1)
 
-#write.csv(odd_plot_sizes,"odd_plot_sizes_NC_fringe_KPEACH.csv", row.names = FALSE)
+#Making new column
+VegBank_with_SpCode_NC_fringe <- VegBank_with_SpCode_NC_fringe %>%
+  mutate('NEW_GrowthForm' = ifelse(!is.na(NEON_GrowthForm), NEON_GrowthForm, USDA_Growth_Form))
+
+
 
 ```
+
+Renaming USDA_Duration column to just 'Duration' 
+
+```{r}
+
+VegBank_NC_fringe5 <- VegBank_with_SpCode_NC_fringe %>% rename('Duration' = 'USDA_Duration') %>% select(-Synonym.Symbol)
+
+
+```
+
+Exporting full data table
 
 ```{r}
 
 #As csv
-write.csv(VegBank_with_SpCode_NC_fringe,"VegBank_NC_fringe_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_NC_fringe5,"/home/shares/neon-inv/output_files/VegBank_NC_fringe_KPEACH_ALL_COLS.csv", row.names = FALSE)
+
+```
+
+Exporting reduced data table
+
+```{r}
+
+VegBank_NC_fringe6 <- VegBank_NC_fringe5 %>%
+  select(-'VegBank_GrowthForm', -'VegBank_ExoticStatus', -'NEON_GrowthForm', -'USDA_Growth_Form', -'USDA_Exotic_Status')
+
+#Just using this to see if any rows are dropped because there is no latitute and longitude. There really ought to be lat and long so just trying to catch that here
+VegBank_NC_fringe6 <- VegBank_NC_fringe6 %>% drop_na(Lat)
+
+#As csv
+write.csv(VegBank_NC_fringe6,"/home/shares/neon-inv/output_files/VegBank_NC_fringe_KPEACH_reduced.csv", row.names = FALSE)
+
+write.csv(VegBank_NC_fringe6,"VegBank_NC_fringe_KPEACH_reduced.csv", row.names = FALSE)
+
+
 
 ```
