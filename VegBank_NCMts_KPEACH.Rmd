@@ -24,9 +24,17 @@ Reading in North Carolina Mountains VegBank Data (from a zip file delivered by e
 
 ```{r, message = FALSE}
 
+# Paths to data
+shared_data_dir <- "/home/shares/neon-inv"
+data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
+data_output <- file.path(shared_data_dir, "output_files")
 
-VegBank_plot_data_NCMts <- read_excel("CVS-NCMts.xlsx", sheet = "plot data")
-VegBank_plot_species_list_NCMts  <- read_excel("CVS-NCMts.xlsx",  sheet = "plot species list")
+#New file path to shared folder
+VegBank_plot_data_NCMts <- read_excel(file.path(data_raw, "CVS-NCMts.xlsx"), sheet = "plot data")
+VegBank_plot_species_list_NCMts <- read_excel(file.path(data_raw, "CVS-NCMts.xlsx"),  sheet = "plot species list")
+
+#Import NEW Exotic Status Authority document
+KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority.csv")
 
 
 ```
@@ -35,24 +43,25 @@ Selecting the columns I will need from the VegBank data to make a new dataset th
 
 ```{r}
 
+VegBank_plot_data_NCMts$`Sampling Level` <- as.numeric(VegBank_plot_data_NCMts$`Sampling Level`)
 
-VegBank_plot_data_NCMts2 <- VegBank_plot_data_NCMts  %>%
-  select('Author Observation Code', 'Observation Start Date', 'Real Latitude', 'Real Longitude', 'Taxon Observation Area', 'Sampling Level', 'previousObsCode') %>%
-  rename( 'UniqueID' = 'Author Observation Code','Year' = 'Observation Start Date', 'Lat' = 'Real Latitude', 'Long' = 'Real Longitude' ) %>%
-  filter('Sampling Level' >  4)
+VegBank_plot_data_NCMts2 <- VegBank_plot_data_NCMts %>%
+  select('Author Observation Code', 'Observation Start Date', 'Real Latitude', 'Real Longitude', 'Public Latitude', 'Public Longitude', 'Taxon Observation Area', 'Sampling Level', 'previousObsCode') %>%
+  rename( 'VegBankUniqueID' = 'Author Observation Code','Year' = 'Observation Start Date', 'Lat' = 'Real Latitude', 'Long' = 'Real Longitude' ) %>%
+   filter(`Sampling Level` > 3)  
 
 VegBank_plot_species_list_NCMts2 <- VegBank_plot_species_list_NCMts %>%
-  select('authorObsCode', 'currentTaxonNameWithSp', 'cover', 'taxon_growthForm_short', 'taxon_woody', 'taxon_exotic', 'taxon_usda_growthForm', 'taxon_usda_code', 'taxon_woody') %>%
-  rename( 'UniqueID' = 'authorObsCode','bestname' = 'currentTaxonNameWithSp', 'PctCov' = 'cover', 'SpCode' = 'taxon_usda_code', 'ExoticStatus' = 'taxon_exotic', 'GrowthForm' = 'taxon_growthForm_short', 'Woodiness' = 'taxon_woody')
+  select('authorObsCode', 'currentTaxonNameWithSp', 'cover', 'taxon_growthForm_short', 'taxon_woody', 'taxon_exotic',  'taxon_usda_code', 'taxon_woody') %>%
+  rename( 'VegBankUniqueID' = 'authorObsCode','bestname' = 'currentTaxonNameWithSp', 'PctCov' = 'cover', 'SpCode' = 'taxon_usda_code', 'ExoticStatus' = 'taxon_exotic', 'GrowthForm' = 'taxon_growthForm_short', 'Woodiness' = 'taxon_woody')
 
-VegBank_NCMts <- full_join(VegBank_plot_data_NCMts2, VegBank_plot_species_list_NCMts2, by = 'UniqueID')
+VegBank_NCMts <- left_join(VegBank_plot_data_NCMts2, VegBank_plot_species_list_NCMts2, by = 'VegBankUniqueID')
 
 #Reducing sampling date to just the year to match NEON data
 VegBank_NCMts <- VegBank_NCMts %>% 
   mutate('Year' = substr(VegBank_NCMts$Year, 1, 4))
 
 #Adding a site column
-VegBank_NCMts <- VegBank_NCMts %>% add_column(Dataset = 'VEGBANK', .before = "UniqueID")  %>% add_column(Zone = 'L48', .before = "UniqueID")
+VegBank_NCMts <- VegBank_NCMts %>% add_column(Dataset = 'VEGBANK', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
 
 #Making exotic status compatible to NEON data
 VegBank_NCMts$ExoticStatus <- gsub("native", "N", VegBank_NCMts$ExoticStatus)
@@ -67,14 +76,15 @@ VegBank_NCMts$Woodiness <- gsub("Y", "Woody", VegBank_NCMts$Woodiness)
 VegBank_NCMts <- VegBank_NCMts  %>% 
   mutate(Woodiness = ifelse(GrowthForm %in% c("Herb", "Herb Vine", "Herb Shrub", "Herb Shrub Vine"), 'Herbaceous', Woodiness))
 
-#This just replaces all NA's, any row that was not explicitly labeled as 'Woody" as Herbaceous which could be wrong so I did not run it
-#VegBank$Woodiness<-  replace_na(VegBank$Woodiness, "Herbaceous")
-
 #Making sure all subspecies are noted correctly. Fixing some common errors that would prevent the species name from matching with the USDA plant list
 
 VegBank_NCMts$bestname <- gsub("subsp.", "ssp.", VegBank_NCMts$bestname)
 VegBank_NCMts$bestname <- gsub("subspecies", "ssp.", VegBank_NCMts$bestname)
 VegBank_NCMts$bestname <- gsub("ssp..", "ssp.", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("\\bsp\\.\\b", " ", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("\\bSP\\.\\b", " ", VegBank_NCMts$bestname)
 
 #strip white space
 VegBank_NCMts$bestname  <- trimws(VegBank_NCMts$bestname, which = c("right"))
@@ -95,56 +105,522 @@ VegBank_multiple_species_NCMts$bestname <- gsub(".\\[|\\]", " ", VegBank_multipl
 VegBank_multiple_species_NCMts$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_NCMts$bestname)
 
 #Save as csv for Jeff to inspect
-write.csv(VegBank_multiple_species_NCMts ,"multiple_sp_NCMts_KPEACH.csv", row.names = FALSE)
+#write.csv(VegBank_multiple_species_NCMts ,"multiple_sp_NCMts_KPEACH.csv", row.names = FALSE)
 
 ```
 
-Removing these rows from the main data set until I can find a solution
+Removing the brackets from these rows from the main data set 
 ```{r}
 
-VegBank_NCMts <- VegBank_NCMts %>%
-    filter(!str_detect(bestname,  ".\\[|\\]."))
+VegBank_NCMts$bestname  <- str_replace_all(VegBank_NCMts$bestname , "\\*|\\[|\\]", "")
+
+VegBank_NCMts$bestname  <- str_replace_all(VegBank_NCMts$bestname , "\\*|\\{|\\}", "")
 
 ```
 
-Read in USDA Plants list with species codes
+Manually fixing some species
 
 ```{r}
 
 
-USDA_plant_list_ALL <- read.delim2("USDA_all_with_syn.txt",  sep = ",")
-
-USDA_list_w_exotic_status <- read.delim2("USDA_list_w_exotic_status.txt",  sep = ",")
+VegBank_NCMts$bestname <- gsub("Viola pedata var. pedata", "Viola pedata", VegBank_NCMts$bestname)
 
 
-#Only keeping L48 Native status which is always the first listed
-USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 0, 6)
+VegBank_NCMts$bestname <- gsub("Toxicodendron radicans var. radicans", "Toxicodendron radicans", VegBank_NCMts$bestname)
 
-USDA_list_w_exotic_status$Native.Status <- substr(USDA_list_w_exotic_status$Native.Status, 5, 5)
+VegBank_NCMts$bestname <- gsub("Cartrema americanum", "Osmanthus americanus", VegBank_NCMts$bestname)
 
-USDA_list_w_exotic_status$Native.Status <- gsub("[()]", "", USDA_list_w_exotic_status$Native.Status)
+#http://www.namethatplant.net/plantdetail.shtml?plant=988
+VegBank_NCMts$bestname <- gsub("Opuntia mesacantha", "Opuntia humifusa", VegBank_NCMts$bestname)
 
-USDA_plant_list_ALL <- USDA_list_w_exotic_status %>%
-  select(-"Symbol") %>%
-  rename("bestname" = "Scientific.Name", "SpCode" = 'Accepted.Symbol', "USDA_Exotic_Status" = "Native.Status", "USDA_Growth_Form" = "Growth.Habit", "USDA_Duration" = "Duration") 
+VegBank_NCMts$bestname <- gsub("Pleopeltis michauxiana", "Pleopeltis polypodioides ssp. michauxiana", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Hamamelis virginiana var. virginiana", "Hamamelis virginiana", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Onoclea sensibilis var. sensibilis", "Onoclea sensibilis", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Arthraxon hispidus var. hispidus", "Arthraxon hispidus", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Magnolia virginiana var. virginiana", "Magnolia virginiana", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Iva frutescens var. frutescens", "Iva frutescens ssp. frutescens", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Gonolobus suberosus var. suberosus", "Matelea gonocarpos", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Paronychia baldwinii ssp.riparia", "Paronychia baldwinii ssp. riparia", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Aureolaria levigata", "Aureolaria laevigata", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Onoclea sensibilis var. sensibilis", "Onoclea sensibilis", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Paronychia baldwinii ssp.riparia", "Paronychia baldwinii ssp. riparia", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Hypericum mutilum var. mutilum", "Hypericum mutilum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Clitoria mariana var. mariana", "Clitoria mariana", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Dichanthelium portoricense ssp.patulum", "Dichanthelium sabulorum var. thinium", VegBank_NCMts$bestname)
+
+
+VegBank_NCMts$bestname <- gsub("Onoclea sensibilis var. sensibilis", "Onoclea sensibilis", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Pleopeltis michauxiana", "Pleopeltis polypodioides ssp. michauxiana", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Gonolobus suberosus var. granulatus", "Matelea gonocarpos", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Arthraxon hispidus var. hispidus", "Arthraxon hispidus", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Phoradendron leucarpum ssp.leucarpum", "Phoradendron leucarpum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Chamaecyparis thyoides var. thyoides", "Chamaecyparis thyoides", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Lepidium virginicum ssp.virginicum", "Lepidium virginicum var. virginicum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Arenaria lanuginosa var. lanuginosa", "Arenaria lanuginosa ssp. lanuginosa var. lanuginosa", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Verbascum thapsus ssp.thapsus", "Verbascum thapsus", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Veronica peregrina var. peregrina", "Veronica peregrina ssp. peregrina", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Festuca rubra ssp.rubra", "Festuca rubra ssp. rubra", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Paronychia baldwinii ssp.baldwinii", "Paronychia baldwinii ssp. baldwinii", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Triplasis purpurea var. purpurea", "Triplasis purpurea", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Galactia volubilis var. volubilis", "Galactia volubilis", VegBank_NCMts$bestname)
+
+#https://www.itis.gov/servlet/SingleRpt/SingleRpt?search_topic=TSN&search_value=893824#null
+VegBank_NCMts$bestname <- gsub("Seutera angustifolia", "Cynanchum angustifolium", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Galium obtusum var. obtusum", "Galium obtusum ssp. obtusum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Opuntia humifusa ssp.mesacantha", "Opuntia humifusa", VegBank_NCMts$bestname)
+
+#https://www.marylandbiodiversity.com/viewSpecies.php?species=4078
+VegBank_NCMts$bestname <- gsub("Hymenachne hemitomon", "Panicum hemitomon", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Nymphaea odorata ssp.odorata", "Nymphaea odorata ssp. odorata", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Tripsacum dactyloides var. dactyloides", "Tripsacum dactyloides", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Hedera helix var. helix", "Hedera helix", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Coleataenia longifolia ssp.longifolia", "Panicum rigidulum var. pubescens", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Pontederia cordata var. cordata", "Pontederia cordata", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Oenothera fruticosa var. fruticosa", "Oenothera fruticosa ssp. fruticosa", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Sagittaria latifolia var. latifolia", "Sagittaria latifolia", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Ulmus americana var. americana", "Ulmus americana", VegBank_NCMts$bestname)
+
+#https://www.itis.gov/servlet/SingleRpt/SingleRpt;jsessionid=301BE5D420CAB47EF9DE4C2B0476FA5E?search_topic=TSN&search_value=1061799#null
+VegBank_NCMts$bestname <- gsub("Dichanthelium neuranthum", "Dichanthelium aciculare", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Galium tinctorium var. tinctorium", "Galium tinctorium", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Gaillardia pulchella var. drummondii", "Gaillardia pulchella", VegBank_NCMts$bestname)
+
+#https://plants.ces.ncsu.edu/plants/pourthiaea-villosa/
+VegBank_NCMts$bestname <- gsub("Pourthiaea villosa", "Photinia villosa", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Erianthus", "Saccharum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Saccharum giganteus", "Saccharum giganteum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Ilex decidua var. decidua", "Ilex decidua", VegBank_NCMts$bestname)
+
+#https://florida.plantatlas.usf.edu/Plant.aspx?id=3967
+VegBank_NCMts$bestname <- gsub("Solidago virgata", "Solidago stricta", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Rumex crispus ssp.crispus", "Rumex crispus ssp. crispus", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Glyceria striata var. striata", "Glyceria striata", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Eragrostis secundiflora ssp.oxylepis", "Eragrostis secundiflora ssp. oxylepis", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Kali soda", "Salsola kali ssp. kali", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Styrax americanus var. americanus", "Styrax americanus", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Dichanthelium dichotomum var. ramulosum", "Dichanthelium dichotomum var. dichotomum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Morella pumila", "Morella cerifera", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Carex intumescens var. intumescens", "Carex intumescens", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Symphyotrichum concolor var. concolor", "Symphyotrichum concolor", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Phlox nivalis var. nivalis", "Phlox nivalis ssp. nivalis", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Vernonia angustifolia var. angustifolia", "Vernonia angustifolia ssp. angustifolia", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Bigelowia nudata var. nudata", "Bigelowia nudata ssp. nudata", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Carex intumescens var. intumescens", "Carex intumescens", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Bryodesma rupestre", "Selaginella rupestris", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Bryodesma tortipilum", "Selaginella tortipila", VegBank_NCMts$bestname)
+
+#https://plants.ces.ncsu.edu/plants/hemionitis-lanosa/
+VegBank_NCMts$bestname <- gsub("Myriopteris lanosa", "Cheilanthes lanosa", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Bryodesma arenicola", "Selaginella arenicola", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Zephyranthes atamasco", "Zephyranthes atamasca", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Ulmus americana var. americana", "Ulmus americana", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Orbexilum psoralioides", "Orbexilum pedunculatum var. psoralioides", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Ionactis linariifolia", "Ionactis linariifolius", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Chamaecrista nictitans var. nictitans", "Chamaecrista nictitans ssp. nictitans", VegBank_NCMts$bestname)
+
+#https://florida.plantatlas.usf.edu/Plant.aspx?id=3080
+VegBank_NCMts$bestname <- gsub("Dichanthelium webberianum", "Dichanthelium sabulorum var. thinium", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Dichanthelium tenue", "Dichanthelium dichotomum var. tenue", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Andropogon gerardi", "Andropogon gerardii", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Comandra umbellata var. umbellata", "Comandra umbellata ssp. umbellata", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Asclepias tuberosa var. tuberosa", "Asclepias tuberosa ssp. tuberosa", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Sarracenia rubra ssp.rubra", "Sarracenia rubra ssp. rubra", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Orbexilum lupinellus", "Orbexilum lupinellum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Dichanthelium chamaelonche ssp.chamaelonche", "Dichanthelium dichotomum var. breve", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Bulbostylis capillaris ssp.capillaris", "Bulbostylis capillaris ssp. capillaris", VegBank_NCMts$bestname)
+
+#https://florida.plantatlas.usf.edu/Plant.aspx?id=3399
+VegBank_NCMts$bestname <- gsub("Lithospermum virginianum", "Onosmodium virginianum", VegBank_NCMts$bestname)
+
+#https://swbiodiversity.org/seinet/taxa/index.php?taxon=100793
+VegBank_NCMts$bestname <- gsub("Bryodesma acanthonota", "Selaginella acanthonota", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Sarracenia minor var. minor", "Sarracenia minor", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Rhynchospora glomerata var. glomerata", "Rhynchospora glomerata", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Maianthemum racemosum ssp.racemosum", "Maianthemum racemosum ssp. racemosum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Populus deltoides ssp.deltoides", "Populus deltoides ssp. deltoides", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Hypericum densiflorum var. densiflorum", "Hypericum densiflorum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Echinochloa crusgalli var. crusgalli", "Echinochloa crus-galli", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Tiedemannia filiformis ssp.filiformis", "Oxypolis filiformis", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Symphyotrichum racemosum var. racemosum", "Symphyotrichum racemosum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Rorippa palustris ssp.palustris", "Rorippa palustris ssp. palustris", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Diaperia verna var. verna", "Evax verna var. verna", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Luzula multiflora var. multiflora", "Luzula multiflora ssp. multiflora var. multiflora", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Galium orizabense ssp.laevicaule", "Galium orizabense ssp. laevicaule", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Coleataenia longifolia ssp.combsii", "Panicum rigidulum var. pubescens", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Smallanthus uvedalia", "Smallanthus uvedalius", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Viola lanceolata var. lanceolata", "Viola lanceolata ssp. lanceolata", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Ludwigia linearis var. linearis", "Ludwigia linearis", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Dichanthelium commutatum var. commutatum", "Dichanthelium commutatum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Quercus laurifolia 'waccamawensis'", "Quercus laurifolia", VegBank_NCMts$bestname)
+
+#http://www.floraofalabama.org/Plant.aspx?id=4911 this says synonym is Panicum curtifolium which redirects to this one
+VegBank_NCMts$bestname <- gsub("Dichanthelium curtifolium", "Dichanthelium acuminatum var. fasciculatum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Saccharum strictus", "Saccharum baldwinii", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Juncus scirpoides var. scirpoides", "Juncus scirpoides", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Polygonum polygamum var. polygamum", "Polygonella polygama", VegBank_NCMts$bestname)
+
+#http://newyork.plantatlas.usf.edu/Plant.aspx?id=1450
+VegBank_NCMts$bestname <- gsub("Hylodesmum pauciflorum", "Desmodium pauciflorum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Polygonum polygamum var. croomii", "Polygonella polygama", VegBank_NCMts$bestname)
+
+#https://florida.plantatlas.usf.edu/Plant.aspx?id=3440
+VegBank_NCMts$bestname <- gsub("Viola edulis", "Viola palmata", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Lechea pulchella var. ramosissima", "Lechea pulchella", VegBank_NCMts$bestname)
+
+#https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=287531&isprofile=0&n=1 
+VegBank_NCMts$bestname <- gsub("Viola eriocarpa", "Viola pubescens var. pubescens", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Chasmanthium sessiliflorum var. sessiliflorum", "Chasmanthium sessiliflorum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Carex bromoides ssp.bromoides", "Carex bromoides ssp. bromoides", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Andropogon dealbatus", "Andropogon capillipes", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Viola tripartita var. tripartita", "Viola tripartita", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Luziola fluitans var. fluitans", "Luziola fluitans", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Lupinus perennis ssp.perennis", "Lupinus perennis ssp. perennis", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Ludwigia grandiflora ssp.hexapetala", "Ludwigia grandiflora", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Urtica dioica ssp.dioica", "Urtica dioica ssp. dioica", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Dichanthelium portoricense ssp.portoricense", "Dichanthelium sabulorum var. thinium ", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Dichanthelium sabulorum var. thinium ", "Dichanthelium sabulorum var. thinium", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Coleataenia anceps ssp.rhizomata", "Panicum anceps", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Lespedeza hirta var. hirta", "Lespedeza hirta ssp. hirta", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Paspalum praecox var. praecox", "Paspalum praecox", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Coleataenia anceps ssp.anceps", "Panicum anceps", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Coleataenia rigidula ssp.condensa", "Panicum rigidulum", VegBank_NCMts$bestname)
+
+
+VegBank_NCMts$bestname <- gsub("Viola acaulescent", "Viola", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Poa trivialis ssp.trivialis", "Poa trivialis", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Rubus Dewberry", "Rubus", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Betula lenta var. lenta", "Betula lenta", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Circaea alpina ssp.alpina", "Circaea alpina ssp. alpina", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Pteridium latiusculum var. latiusculum", "Pteridium aquilinum var. latiusculum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Magnolia acuminata var. acuminata", "Magnolia acuminata", VegBank_NCMts$bestname)
+
+#https://www.carolinanature.com/trees/rhpi.html
+VegBank_NCMts$bestname <- gsub("Rhododendron pilosum", "Menziesia pilosa", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Silphium asteriscus var. trifoliatum", "Silphium asteriscus", VegBank_NCMts$bestname)
+
+#http://newyork.plantatlas.usf.edu/Plant.aspx?id=1808
+VegBank_NCMts$bestname <- gsub("Anticlea glauca", "Zigadenus elegans ssp. elegans", VegBank_NCMts$bestname)
+
+#https://plants.ces.ncsu.edu/plants/homalosorus-pycnocarpos/
+VegBank_NCMts$bestname <- gsub("Homalosorus pycnocarpos", "Diplazium pycnocarpon", VegBank_NCMts$bestname)
+
+#https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=57934
+VegBank_NCMts$bestname <- gsub("Sibbaldia retusa", "Sibbaldiopsis tridentata", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Triphora trianthophoros var. trianthophoros", "Triphora trianthophora", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Erythronium americanum ssp.americanum", "Erythronium americanum ssp. americanum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Calystegia spithamaea ssp.stans", "Calystegia spithamaea ssp. stans", VegBank_NCMts$bestname)
+
+#http://www.namethatplant.net/plantdetail.shtml?plant=692
+VegBank_NCMts$bestname <- gsub("Pilosella caespitosa", "Hieracium caespitosum", VegBank_NCMts$bestname)
+
+#http://www.floraofalabama.org/Plant.aspx?id=5441
+VegBank_NCMts$bestname <- gsub("Carex austrolucorum", "Carex lucorum var. austrolucorum", VegBank_NCMts$bestname)
+
+#https://plants.ces.ncsu.edu/plants/convallaria-pseudomajalis/
+VegBank_NCMts$bestname <- gsub("Convallaria pseudomajalis", "Convallaria majuscula", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Osmunda claytoniana var. claytoniana", "Osmunda claytoniana", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Myriopteris tomentosa", "Cheilanthes lanosa", VegBank_NCMts$bestname)
+
+#http://newyork.plantatlas.usf.edu/plant.aspx?id=787
+VegBank_NCMts$bestname <- gsub("Mononeuria groenlandica", "Minuartia groenlandica", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Phleum pratense ssp.pratense", "Phleum pratense", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Poa pratensis ssp.pratensis", "Poa pratensis ssp. pratensis", VegBank_NCMts$bestname)
+
+#https://plants.ncwildflower.org/plant_galleries/details/huperzia-appressa
+VegBank_NCMts$bestname <- gsub("Huperzia appressa", "Huperzia appalachiana", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Arabidopsis lyrata ssp.lyrata", "Arabis lyrata", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Alnus viridis ssp.crispa", "Alnus viridis ssp. crispa", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Asplenium trichomanes ssp.trichomanes", "Asplenium trichomanes ssp. trichomanes", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Deschampsia cespitosa ssp.glauca", "Deschampsia cespitosa", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Oreojuncus trifidus", "Juncus trifidus", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Vicia sativa ssp.nigra", "Vicia sativa ssp. nigra", VegBank_NCMts$bestname)
+
+#https://plants.ces.ncsu.edu/plants/primula-meadia/
+VegBank_NCMts$bestname <- gsub("Primula meadia", "Dodecatheon meadia", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Woodsia obtusa ssp.obtusa", "Woodsia obtusa ssp. obtusa", VegBank_NCMts$bestname)
+
+#There is no Dioscorea species really close to polystachya but this species has the same common name
+VegBank_NCMts$bestname <- gsub("Dioscorea polystachya", "Dioscorea oppositifolia", VegBank_NCMts$bestname)
+
+#http://newyork.plantatlas.usf.edu/Plant.aspx?id=423
+VegBank_NCMts$bestname <- gsub("Pilosella piloselloides", "Hieracium piloselloides", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Paspalum dilatatum ssp.dilatatum", "Paspalum dilatatum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Packera paupercula var. appalachiana", "Packera paupercula", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Carex echinata ssp.echinata", "Carex echinata ssp. echinata", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Saccharum contortus", "Saccharum brevibarbe var. contortum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Holcus mollis ssp.mollis", "Holcus mollis", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Symphyotrichum concinnum", "Symphyotrichum laeve var. concinnum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Elymus canadensis var. canadensis", "Elymus canadensis", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Lycopodioides apodum", "Selaginella apoda", VegBank_NCMts$bestname)
+
+#https://plants.ncwildflower.org/plant_galleries/details/cleistes-bifaria
+VegBank_NCMts$bestname <- gsub("Cleistesiopsis bifaria", "Cleistes bifaria", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Myosotis laxa ssp.laxa", "Myosotis laxa", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Carex leptalea var. leptalea", "Carex leptalea ssp. leptalea", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Carex bromoides ssp.montana", "Carex bromoides ssp. montana", VegBank_NCMts$bestname)
+
+#http://floraofalabama.org/Plant.aspx?id=4137
+VegBank_NCMts$bestname <- gsub("Cyperus hortensis", "Kyllinga pumila", VegBank_NCMts$bestname)
+
+#https://plants.ces.ncsu.edu/plants/pilosella-officinarum/
+VegBank_NCMts$bestname <- gsub("Pilosella officinarum", "Hieracium pilosella", VegBank_NCMts$bestname)
+
+#http://floraofalabama.org/Plant.aspx?id=1208
+VegBank_NCMts$bestname <- gsub("Packera crawfordii", "Packera paupercula", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Antennaria parlinii ssp.fallax", "Antennaria parlinii ssp. fallax", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Sarracenia purpurea var. montana", "Sarracenia purpurea ssp. purpurea var. montana", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Helianthus occidentalis ssp.occidentalis", "Helianthus occidentalis ssp. occidentalis", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Campanula aparinoides var. aparinoides", "Campanula aparinoides", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Vaccinium stamineum var. stamineum", "Vaccinium stamineum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Physostegia virginiana ssp.virginiana", "Physostegia virginiana ssp. virginiana", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Antennaria howellii ssp.petaloidea", "Antennaria howellii ssp. petaloidea", VegBank_NCMts$bestname)
+
+#http://www.namethatplant.net/plantdetail.shtml?plant=4296
+VegBank_NCMts$bestname <- gsub("Thalictrum hepaticum", "Thalictrum revolutum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Juncus effusus ssp.solutus", "Juncus effusus var. solutus", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Packera paupercula var. paupercula", "Packera paupercula", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Fagus grandifolia var. grandifolia", "Fagus grandifolia", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Coreopsis major var. major", "Coreopsis major", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Erythronium umbilicatum ssp.monostolum", "Erythronium umbilicatum ssp. monostolum", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Sphagnum spp.", "Sphagnum", VegBank_NCMts$bestname)
+
+#these two Stellaria species listed are the only two in the genus so just reducing to genus
+VegBank_NCMts$bestname <- gsub("Stellaria pubera/corei complex", "Stellaria", VegBank_NCMts$bestname)
+
 
 ```
 
-
-Table of species with no match in USDA table
+Table of species with no match in KPEACH_ExoticStatus_authority table
 
 ```{r}
 
-#9,873 rows with no match
-no_match <- dplyr::anti_join(VegBank_NCMts,USDA_plant_list_ALL, by="bestname")
 
+#44 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed)
+no_match <- dplyr::anti_join(VegBank_NCMts, KPEACH_ExoticStatus_authority, by="bestname")
 
-#Reducing all rows of the no match file to just the genus so that USDA can find matches
-no_match$bestname <- stringr::word(no_match$bestname, 1)
+#Filtering out any row with <.10 in the cover column
+no_match$PctCov <- as.numeric(no_match$PctCov) 
 
+#Removing all rows with less than 10% cover
+no_match <- no_match %>% filter(PctCov > .10)
 
-#Save as csv for Jeff to inspect
-write.csv(no_match,"no_match_NCMts_KPEACH.csv", row.names = FALSE)
+no_match <- no_match %>% drop_na(bestname)
+
+to_be_matched <- no_match %>% 
+    filter(!str_detect(bestname,  ".\\+|\\+."))
+
+to_be_matched <- to_be_matched %>% 
+    filter(bestname != "Lichen") %>%
+    filter(bestname != "Liverwort") %>%
+    filter(bestname != "Bryophyte") %>%
+    filter(bestname != "Unknown") %>%
+    filter(bestname != "Asteraceae") %>%
+    filter(bestname != "Poaceae") %>%
+    filter(bestname != "Fabaceae") %>%
+    filter(bestname != "Lamiaceae") %>%
+     filter(bestname != "Eudicotyledonae") %>%
+     filter(bestname != "Cyperaceae") %>%
+     filter(bestname != "Lycopodiophyta") %>%
+     filter(bestname != "Algae") %>%
+    filter(bestname != "Monilophyta") %>%
+   filter(bestname != "Onagraceae") %>%
+     filter(bestname != "Monocotyledonae") %>%
+       filter(bestname != "Carex section Acrocystis") %>%
+       filter(bestname != "Carex section Ovales") %>%
+       filter(bestname != "Poaceae tribe Paniceae") %>%
+   filter(bestname != "Carex section Phaestoglochin") %>%
+    filter(bestname != "Caryophyllaceae") %>%
+    filter(bestname != "Rosaceae") %>%
+    filter(bestname != "Plantae") %>%
+      filter(bestname != "Orchidaceae") %>%
+      filter(bestname != "Polygonaceae") %>%
+      filter(bestname != "Brassicaceae") %>%
+      filter(bestname != "Saxifragaceae") %>%
+      filter(bestname != "Carex section Vulpinae") %>%
+      filter(bestname != "Carex section Careyanae") %>%
+        filter(bestname != "Carex section Griseae") %>%
+        filter(bestname != "Carex section Lupulinae") %>%
+        filter(bestname != "Carex section Hymenochlaenae") %>%
+        filter(bestname != "Carex section Laxiflorae") %>%
+    filter(bestname != "Apiaceae") %>%
+   filter(bestname != "Apocynaceae") %>%
+    filter(bestname != "Nabalus") %>% 
+ filter(!str_detect(bestname, "\\d")) 
+
+#only removing Nabalus here because I cannot really figure out what it should be. The internet says that it used to be considered part of the genus Prenanthes but there are also observations of Prenanthes at this site so if I renamed ir Prenanthes it would just look like duplicated in the datatable 
+
+```
+
+Adding made up SpCodes for the hybrid rows
+
+```{r}
+
+#Adding new 'fake' species codes for the rows with no species codes (because they are hybrids or observer was uncertain of ID)
+
+#Making a column of row numbers
+no_match <- cbind(rownames(no_match), data.frame(no_match, row.names=NULL))
+
+#Adding a - so each new species code will just have a 'NOMATCH' then a dash followed by sequential numbers
+numbers <- paste0('-', no_match$`rownames(no_match)`)
+
+#Final step
+no_match <- no_match %>% 
+mutate('SpCode' = paste0("NOMATCH_NCMts", numbers)) %>% 
+select(-'rownames(no_match)') %>% 
+rename('Taxon Observation Area' = 'Taxon.Observation.Area', 'Sampling Level' = 'Sampling.Level', 'Public Latitude' = 'Public.Latitude', 'Public Longitude' = 'Public.Longitude')
 
 ```
 
@@ -152,40 +628,68 @@ Adding species codes to rows with matches
 
 ```{r}
 
-#93,567
-VegBank_with_SpCode_NCMts1 <- dplyr::inner_join(VegBank_NCMts, USDA_plant_list_ALL, by="bestname")
 
-VegBank_with_SpCode_NCMts2 <- dplyr::inner_join(no_match, USDA_plant_list_ALL, by="bestname")
+VegBank_with_SpCode_NCMts1 <- dplyr::inner_join(VegBank_NCMts, KPEACH_ExoticStatus_authority, by="bestname")
 
-VegBank_with_SpCode_NCMts <- merge(VegBank_with_SpCode_NCMts1, VegBank_with_SpCode_NCMts2, all = TRUE)
-
-
-VegBank_with_SpCode_NCMts <- VegBank_with_SpCode_NCMts %>%
-  select(-taxon_usda_growthForm, -SpCode.x) %>%
+VegBank_with_SpCode_NCMts1 <- VegBank_with_SpCode_NCMts1 %>%
+  select(-SpCode.x) %>%
   rename("SpCode" = "SpCode.y")
 
-#Now lets see how many no match rows are left
-#0! Yay!
-no_match2 <- dplyr::anti_join(VegBank_with_SpCode_NCMts, USDA_plant_list_ALL, by="bestname")
+#Merging the df that DOES has correct species codes with the no_match table I made with the newly invented species codes
+
+VegBank_with_SpCode_NCMts <- merge(VegBank_with_SpCode_NCMts1, no_match, all = TRUE)
+
+VegBank_with_SpCode_NCMts <- VegBank_with_SpCode_NCMts %>% rename('VegBank_ExoticStatus' = 'ExoticStatus', 'VegBank_GrowthForm' = 'GrowthForm')
 
 ```
 
-Making a new table, pulling out odd plot size values etc
+I also kept all 3 GrowthForm columns. The 'VegBank_GrowthForm' is the growth form column that came with the data from Bob Peet/Jeff Corbin. The 'NEON_GrowthForm' column came from the taxonomy_temp10_revised.csv file. The 'USDA_GrowthForm' column came from the USDA plant list. I assume that the NEON group wants me to follow the same procedure as the exotic status column and use the NEON_GrowthForm whenever possible and then the USDA_GrowthForm for any new species. However, in a previous email Eve told me to use the USDA growth form and reduce it to only one word (ex. 'Forb/herb' would become 'Forb'). There are many rows in the NEON_GrowthForm column that do not follow this rule (they are more than one word). The READ ME file says to use the GrowthForm from the taxonomy_temp10_revised.csv file but also has a bullet point saying "Rule for growth form was to take the first thing listed (e.g., ‘Subshrub, Shrub’ became ‘Subshrub’)". So I made a new column called NEW_GrowthForm that uses the NEON_GrowthForm when available but the USDA_GrowthForm for new species. 
 
 ```{r}
 
-plot_sizes <- unique(VegBank_with_SpCode_NCMts$`Taxon Observation Area`)
+#Removing punctuation so I can extract only the first word from this column
+VegBank_with_SpCode_NCMts$NEON_GrowthForm <- gsub('[[:punct:]]', " ", VegBank_with_SpCode_NCMts$NEON_GrowthForm)
 
-odd_plot_sizes <- VegBank_with_SpCode_NCMts %>%
-  filter(`Taxon Observation Area` == '-1')
+#Extracting first word
+VegBank_with_SpCode_NCMts$NEON_GrowthForm <- stringr::word(VegBank_with_SpCode_NCMts$NEON_GrowthForm, 1)
 
-write.csv(odd_plot_sizes,"odd_plot_sizes_NCMts_KPEACH.csv", row.names = FALSE)
+#Making new column
+VegBank_with_SpCode_NCMts <- VegBank_with_SpCode_NCMts %>%
+  mutate('NEW_GrowthForm' = ifelse(!is.na(NEON_GrowthForm), NEON_GrowthForm, USDA_Growth_Form))
 
 ```
+
+Renaming USDA_Duration column to just 'Duration' 
+
+```{r}
+
+VegBank_NCMts5 <- VegBank_with_SpCode_NCMts %>% rename('Duration' = 'USDA_Duration') %>% select(-Synonym.Symbol)
+
+
+```
+
+Exporting full data table
 
 ```{r}
 
 #As csv
-write.csv(VegBank_with_SpCode_NCMts,"VegBank_NCMts_KPEACH.csv", row.names = FALSE)
+write.csv(VegBank_NCMts5,"/home/shares/neon-inv/output_files/VegBank_NCMts_KPEACH_ALL_COLS.csv", row.names = FALSE)
+
+```
+
+Exporting reduced data table
+
+```{r}
+
+VegBank_NCMts6 <- VegBank_NCMts5 %>%
+  select(-'VegBank_GrowthForm', -'VegBank_ExoticStatus', -'NEON_GrowthForm', -'USDA_Growth_Form', -'USDA_Exotic_Status')
+
+#Just using this to see if any rows are dropped because there is no latitute and longitude. There really ought to be lat and long so just trying to catch that here
+VegBank_NCMts6 <- VegBank_NCMts6 %>% drop_na(Lat)
+
+#As csv
+write.csv(VegBank_NCMts6,"/home/shares/neon-inv/output_files/VegBank_NCMts_KPEACH_reduced.csv", row.names = FALSE)
+
+write.csv(VegBank_NCMts6,"VegBank_NCMts_KPEACH_reduced.csv", row.names = FALSE)
 
 ```

@@ -515,8 +515,6 @@ VegBank_with_SpCode_NC_coastal$NEON_GrowthForm <- stringr::word(VegBank_with_SpC
 VegBank_with_SpCode_NC_coastal <- VegBank_with_SpCode_NC_coastal %>%
   mutate('NEW_GrowthForm' = ifelse(!is.na(NEON_GrowthForm), NEON_GrowthForm, USDA_Growth_Form))
 
-
-
 ```
 
 Renaming USDA_Duration column to just 'Duration' 
