@@ -575,7 +575,7 @@ VegBank_NCPP$bestname <- gsub("Silene caroliniana var. caroliniana", "Silene car
 VegBank_NCPP$bestname <- gsub("Myriopteris", "Cheilanthes", VegBank_NCPP$bestname)
 
 
-#	Could not find solid substitutes for Stachys matthewsii and Prunus speciosa. It looks like some Persicaria are considered Polygonums but maybe not all? 
+#	Could not find solid substitutes for Stachys matthewsii and Prunus speciosa. Also the genus Periscaria. It looks like some Persicaria are considered Polygonums but maybe not all? 
 
 ```
 
@@ -676,5 +676,56 @@ VegBank_with_SpCode_NCPP1 <- VegBank_with_SpCode_NCPP1 %>%
 VegBank_with_SpCode_NCPP <- merge(VegBank_with_SpCode_NCPP1, no_match, all = TRUE)
 
 VegBank_with_SpCode_NCPP <- VegBank_with_SpCode_NCPP %>% rename('VegBank_ExoticStatus' = 'ExoticStatus', 'VegBank_GrowthForm' = 'GrowthForm')
+
+```
+
+I also kept all 3 GrowthForm columns. The 'VegBank_GrowthForm' is the growth form column that came with the data from Bob Peet/Jeff Corbin. The 'NEON_GrowthForm' column came from the taxonomy_temp10_revised.csv file. The 'USDA_GrowthForm' column came from the USDA plant list. I assume that the NEON group wants me to follow the same procedure as the exotic status column and use the NEON_GrowthForm whenever possible and then the USDA_GrowthForm for any new species. However, in a previous email Eve told me to use the USDA growth form and reduce it to only one word (ex. 'Forb/herb' would become 'Forb'). There are many rows in the NEON_GrowthForm column that do not follow this rule (they are more than one word). The READ ME file says to use the GrowthForm from the taxonomy_temp10_revised.csv file but also has a bullet point saying "Rule for growth form was to take the first thing listed (e.g., ‘Subshrub, Shrub’ became ‘Subshrub’)". So I made a new column called NEW_GrowthForm that uses the NEON_GrowthForm when available but the USDA_GrowthForm for new species. 
+
+```{r}
+
+#Removing punctuation so I can extract only the first word from this column
+VegBank_with_SpCode_NCPP$NEON_GrowthForm <- gsub('[[:punct:]]', " ", VegBank_with_SpCode_NCPP$NEON_GrowthForm)
+
+#Extracting first word
+VegBank_with_SpCode_NCPP$NEON_GrowthForm <- stringr::word(VegBank_with_SpCode_NCPP$NEON_GrowthForm, 1)
+
+#Making new column
+VegBank_with_SpCode_NCPP <- VegBank_with_SpCode_NCPP %>%
+  mutate('NEW_GrowthForm' = ifelse(!is.na(NEON_GrowthForm), NEON_GrowthForm, USDA_Growth_Form))
+
+```
+
+Renaming USDA_Duration column to just 'Duration' 
+
+```{r}
+
+VegBank_NCPP5 <- VegBank_with_SpCode_NCPP %>% rename('Duration' = 'USDA_Duration') %>% select(-Synonym.Symbol)
+
+
+```
+
+Exporting full data table
+
+```{r}
+
+#As csv
+write.csv(VegBank_NCPP5,"/home/shares/neon-inv/output_files/VegBank_NCPP_KPEACH_ALL_COLS.csv", row.names = FALSE)
+
+```
+
+Exporting reduced data table
+
+```{r}
+
+VegBank_NCPP6 <- VegBank_NCPP5 %>%
+  select(-'VegBank_GrowthForm', -'VegBank_ExoticStatus', -'NEON_GrowthForm', -'USDA_Growth_Form', -'USDA_Exotic_Status')
+
+#Just using this to see if any rows are dropped because there is no latitute and longitude. There really ought to be lat and long so just trying to catch that here
+VegBank_NCPP6 <- VegBank_NCPP6 %>% drop_na(Lat)
+
+#As csv
+write.csv(VegBank_NCPP6,"/home/shares/neon-inv/output_files/VegBank_NCPP_KPEACH_reduced.csv", row.names = FALSE)
+
+write.csv(VegBank_NCPP6,"VegBank_NCPP_KPEACH_reduced.csv", row.names = FALSE)
 
 ```
