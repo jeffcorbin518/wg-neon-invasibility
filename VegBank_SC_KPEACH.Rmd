@@ -400,8 +400,6 @@ VegBank_SC$bestname <- gsub("Viola acaulescent", "Viola", VegBank_SC$bestname)
 
 VegBank_SC$bestname <- gsub("Poa trivialis ssp.trivialis", "Poa trivialis", VegBank_SC$bestname)
 
-VegBank_SC$bestname <- gsub("Rubus Dewberry", "Rubus", VegBank_SC$bestname)
-
 VegBank_SC$bestname <- gsub("Betula lenta var. lenta", "Betula lenta", VegBank_SC$bestname)
 
 VegBank_SC$bestname <- gsub("Circaea alpina ssp.alpina", "Circaea alpina ssp. alpina", VegBank_SC$bestname)
@@ -696,9 +694,17 @@ to_be_matched <- to_be_matched %>%
 
 ```
 
+```{r}
+
+no_match <- unique(no_match)
+
+```
+
 Adding made up SpCodes for the hybrid rows
 
 ```{r}
+
+
 
 #Adding new 'fake' species codes for the rows with no species codes (because they are hybrids or observer was uncertain of ID)
 
@@ -720,6 +726,7 @@ Adding species codes to rows with matches
 
 ```{r}
 
+VegBank_SC <- unique(VegBank_SC)
 
 VegBank_with_SpCode_SC1 <- dplyr::inner_join(VegBank_SC, KPEACH_ExoticStatus_authority, by="bestname")
 
