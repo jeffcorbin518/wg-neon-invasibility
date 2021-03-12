@@ -241,6 +241,12 @@ to_be_matched <- to_be_matched %>%
 
 ```
 
+```{r}
+
+no_match <- unique(no_match)
+
+```
+
 Adding made up SpCodes for the hybrid rows
 
 ```{r}
@@ -266,6 +272,7 @@ Adding species codes to rows with matches
 
 ```{r}
 
+VegBank_AK <- unique(VegBank_AK)
 
 VegBank_with_SpCode_AK1 <- dplyr::inner_join(VegBank_AK, KPEACH_ExoticStatus_authority, by="bestname")
 
@@ -323,7 +330,7 @@ VegBank_AK5 <- VegBank_with_SpCode_AK %>%
 ```{r, eval=FALSE}
 
 #This line is not working
-write.csv(VegBank_AK5, file.path(data_output,"VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE))
+#write.csv(VegBank_AK5, file.path(data_output,"VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE))
 
 #Manual save
 write.csv(VegBank_AK5,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE)
