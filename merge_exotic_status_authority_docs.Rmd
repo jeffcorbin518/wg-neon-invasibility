@@ -152,3 +152,27 @@ write.csv(KPEACH_ExoticStatus_authority,"KPEACH_ExoticStatus_authority.csv", row
 
 ```
 
+```{r}
+
+test <- KPEACH_ExoticStatus_authority %>% 
+  filter(ExoticStatus_Origin == 'USDA_PLANTLIST') %>%
+  filter(!is.na(Synonym.Symbol))
+
+
+list <- KPEACH_ExoticStatus_authority %>% 
+  filter(ExoticStatus_Origin == 'USDA_PLANTLIST') %>% 
+select(SpCode, USDA_Exotic_Status, USDA_Growth_Form, USDA_Duration) %>%
+  drop_na(USDA_Exotic_Status)
+
+
+test4 <- left_join(test, list, by = 'SpCode')
+
+test5 <- test4 %>%
+  mutate('USDA_Duration' = ifelse(!is.na(USDA_Duration.x), USDA_Duration.x, USDA_Duration.y)) %>%
+   mutate('USDA_Growth_Form' = ifelse(!is.na(USDA_Growth_Form.x), USDA_Growth_Form.x, USDA_Growth_Form.y)) %>%
+   mutate('USDA_Exotic_Status' = ifelse(!is.na(USDA_Exotic_Status.x), USDA_Exotic_Status.x, USDA_Exotic_Status.y))
+
+test6 <- test5 %>% select(-'USDA_Duration.x', -'USDA_Duration.y', -'USDA_Growth_Form.x', -'USDA_Growth_Form.y', -'USDA_Exotic_Status.x', -'USDA_Exotic_Status.y') 
+
+```
+
