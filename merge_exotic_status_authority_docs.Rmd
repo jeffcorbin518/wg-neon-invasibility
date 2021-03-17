@@ -123,7 +123,7 @@ For any new species that are not already listed in the documents provided by NEO
 
 ```{r}
 
-KPEACH_ExoticStatus_authority2 <- full_join(KPEACH_ExoticStatus_authority1, USDA_plant_list_ALL, by = 'bestname')
+KPEACH_ExoticStatus_authority2 <- left_join(USDA_plant_list_ALL, KPEACH_ExoticStatus_authority1, by = 'bestname')
 
 KPEACH_ExoticStatus_authority3 <- KPEACH_ExoticStatus_authority2 %>%
   mutate('NEW_ExoticStatus' = ifelse(!is.na(NEW_ExoticStatus), NEW_ExoticStatus, USDA_Exotic_Status))
@@ -152,11 +152,13 @@ write.csv(KPEACH_ExoticStatus_authority,"KPEACH_ExoticStatus_authority.csv", row
 
 ```
 
+Test case to check:
+
+Acer barbatum is now Acer floridanum (L48 = N). Currently Acer barbatum has the SpCode for Acer floridanum but not the rest of the info associated with Acer floridanum. The fields for Exotic Status, Growth Form and Duration are blank. I want to populate those fields with the info from Acer floridanum.
+
+
 ```{r}
 
-test <- KPEACH_ExoticStatus_authority %>% 
-  filter(ExoticStatus_Origin == 'USDA_PLANTLIST') %>%
-  filter(!is.na(Synonym.Symbol))
 
 
 list <- KPEACH_ExoticStatus_authority %>% 
@@ -164,15 +166,28 @@ list <- KPEACH_ExoticStatus_authority %>%
 select(SpCode, USDA_Exotic_Status, USDA_Growth_Form, USDA_Duration) %>%
   drop_na(USDA_Exotic_Status)
 
+test <- left_join(KPEACH_ExoticStatus_authority, list, by = 'SpCode')
 
-test4 <- left_join(test, list, by = 'SpCode')
-
-test5 <- test4 %>%
-  mutate('USDA_Duration' = ifelse(!is.na(USDA_Duration.x), USDA_Duration.x, USDA_Duration.y)) %>%
-   mutate('USDA_Growth_Form' = ifelse(!is.na(USDA_Growth_Form.x), USDA_Growth_Form.x, USDA_Growth_Form.y)) %>%
+test2 <- test %>%
+  mutate('USDA_Duration' = ifelse(!is.na(USDA_Duration.x), USDA_Duration.y, USDA_Duration.x)) %>%
+   mutate('USDA_Growth_Form' = ifelse(!is.na(USDA_Growth_Form.x), USDA_Growth_Form.y, USDA_Growth_Form.x)) %>%
    mutate('USDA_Exotic_Status' = ifelse(!is.na(USDA_Exotic_Status.x), USDA_Exotic_Status.x, USDA_Exotic_Status.y))
 
-test6 <- test5 %>% select(-'USDA_Duration.x', -'USDA_Duration.y', -'USDA_Growth_Form.x', -'USDA_Growth_Form.y', -'USDA_Exotic_Status.x', -'USDA_Exotic_Status.y') 
+test3 <- test2 %>% select(-'USDA_Duration.x', -'USDA_Duration.y', -'USDA_Growth_Form.x', -'USDA_Growth_Form.y', -'USDA_Exotic_Status.x', -'USDA_Exotic_Status.y') 
+
+KPEACH_ExoticStatus_authority_031621 <- test3 %>%
+  mutate('NEW_ExoticStatus' = ifelse(!is.na(NEW_ExoticStatus), NEW_ExoticStatus, USDA_Exotic_Status))
+
+
+```
+
+```{r}
+
+#As csv on server in shared folder
+write.csv(KPEACH_ExoticStatus_authority_031621,"/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority_031621.csv", row.names = FALSE)
+
+#save locally
+write.csv(KPEACH_ExoticStatus_authority_031621,"KPEACH_ExoticStatus_authority_031621.csv", row.names = FALSE)
 
 ```
 
