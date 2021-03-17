@@ -40,7 +40,11 @@ VegBank_plot_data_AK <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"), shee
 VegBank_plot_species_list_AK <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"),  sheet = "plot species list")
 
 #Import NEW Exotic Status Authority document
-KPEACH_ExoticStatus_authority <- read_csv(file.path(data_output,"KPEACH_ExoticStatus_authority.csv"))
+#KPEACH_ExoticStatus_authority <- read_csv(file.path(data_output,"KPEACH_ExoticStatus_authority.csv"))
+
+#testing out the new and improved authority doc
+KPEACH_ExoticStatus_authority <- read_csv(file.path(data_output,"KPEACH_ExoticStatus_authority_031621.csv"))
+
 
 ```
 
@@ -333,7 +337,7 @@ VegBank_AK5 <- VegBank_with_SpCode_AK %>%
 #write.csv(VegBank_AK5, file.path(data_output,"VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE))
 
 #Manual save
-write.csv(VegBank_AK5,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE)
+#write.csv(VegBank_AK5,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE)
 
 ```
 
@@ -354,8 +358,10 @@ duplicates <- VegBank_AK6 %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_
 ```{r}
 
 #As csv
-write.csv(VegBank_AK6,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
+#write.csv(VegBank_AK6,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
 
-write.csv(VegBank_AK6,"VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
+#write.csv(VegBank_AK6,"VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
+
+
 ```
 

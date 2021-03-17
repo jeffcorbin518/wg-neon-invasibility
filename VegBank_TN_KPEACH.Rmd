@@ -593,9 +593,9 @@ VegBank_TN$bestname <- gsub("Geum lobatum", "Waldsteinia lobata", VegBank_TN$bes
 VegBank_TN$bestname <- gsub("Saccharum coarctatus", "Saccharum coarctatum", VegBank_TN$bestname)
 
 #https://florida.plantatlas.usf.edu/plant.aspx?id=2390
-VegBank_TN$bestname <- gsub("Orthosia TNoparia", "Cynanchum TNoparium", VegBank_TN$bestname)
+VegBank_TN$bestname <- gsub("Orthosia scoparia", "Cynanchum scoparium", VegBank_TN$bestname)
 
-VegBank_TN$bestname <- gsub("ATNlepias tuberosa var. rolfsii", "ATNlepias tuberosa ssp. rolfsii", VegBank_TN$bestname)
+VegBank_TN$bestname <- gsub("Asclepias tuberosa var. rolfsii", "Asclepias tuberosa ssp. rolfsii", VegBank_TN$bestname)
 
 #http://floraofalabama.org/Plant.aspx?id=1428
 VegBank_TN$bestname <- gsub("Mononeuria uniflora", "Minuartia uniflora", VegBank_TN$bestname)
