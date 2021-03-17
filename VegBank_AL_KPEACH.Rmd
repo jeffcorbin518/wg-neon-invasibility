@@ -396,6 +396,11 @@ VegBank_AL6 <- VegBank_AL5 %>%
 #Just using this to see if any rows are dropped because there is no latitute and longitude. There really ought to be lat and long so just trying to catch that here
 VegBank_AL6 <- VegBank_AL6 %>% drop_na(Lat)
 
+#Trying to find duplicates creeping up in the final merged data
+duplicates <- VegBank_AL6 %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
+
+VegBank_AL6 %>% distinct()
+
 #As csv
 write.csv(VegBank_AL6,"/home/shares/neon-inv/output_files/VegBank_AL_KPEACH_reduced.csv", row.names = FALSE)
 

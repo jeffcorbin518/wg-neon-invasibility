@@ -181,6 +181,13 @@ to_be_matched <- to_be_matched %>%
 
 ```
 
+```{r}
+
+no_match <- unique(no_match)
+
+```
+
+
 Adding made up SpCodes for the hybrid rows
 
 ```{r}
@@ -205,6 +212,7 @@ Adding species codes to rows with matches
 
 ```{r}
 
+VegBank_MS <- unique(VegBank_MS)
 
 VegBank_with_SpCode_MS1 <- dplyr::inner_join(VegBank_MS, KPEACH_ExoticStatus_authority, by="bestname")
 

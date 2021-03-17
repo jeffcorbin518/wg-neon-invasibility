@@ -337,7 +337,7 @@ write.csv(VegBank_AK5,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_ALL_
 
 ```
 
-```{r, eval=FALSE}
+```{r}
 
 VegBank_AK6 <- VegBank_AK5 %>%
   select(-'VegBank_GrowthForm', -'VegBank_ExoticStatus', -'NEON_GrowthForm', -'USDA_Growth_Form', -'USDA_Exotic_Status')
@@ -345,10 +345,17 @@ VegBank_AK6 <- VegBank_AK5 %>%
 #Just using this to see if any rows are dropped because there is no latitute and longitude. There really ought to be lat and long so just trying to catch that here
 VegBank_AK6 <- VegBank_AK6 %>% drop_na(Lat)
 
+#Trying to find duplicates creeping up in the final merged data
+duplicates <- VegBank_AK6 %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
+
+
+```
+
+```{r}
+
 #As csv
 write.csv(VegBank_AK6,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
 
 write.csv(VegBank_AK6,"VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
-
 ```
 

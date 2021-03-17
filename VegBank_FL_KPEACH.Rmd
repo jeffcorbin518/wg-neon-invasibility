@@ -464,7 +464,7 @@ numbers <- paste0('-', no_match$`rownames(no_match)`)
 no_match <- no_match %>% 
 mutate('SpCode' = paste0("NOMATCH_FL", numbers)) %>% 
 select(-'rownames(no_match)') %>% 
-rename('Taxon Observation Area' = 'Taxon.Observation.Area', 'Sampling Level' = 'Sampling.Level')
+rename('Taxon Observation Area' = 'Taxon.Observation.Area', 'Sampling Level' = 'Sampling.Level', 'Public Latitude' = 'Public.Latitude', 'Public Longitude' = 'Public.Longitude')
 
 ```
 
