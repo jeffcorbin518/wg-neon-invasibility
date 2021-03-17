@@ -31,15 +31,15 @@ data_output <- file.path(shared_data_dir, "output_files")
 
 #New file path to shared folder
 #Use the guess_max argument to increase the number of rows that are read to guess the column type. The default is 1000 and here we reset it to 2000. In the case of our example dataset this didn’t work because the problems appeared lower down but it often will. You can add an n_max value (shown below as NULL) where you know the maximum number of rows.( This did not solve the issue). Tried manually setting column types but also did not work. I opened the excel sheets on my computer and saw the researcher had added "notes" to the first cell in each column with some metadata. A great idea for tying metadata to the associated column but super annoying for R. Importing again without the notes. 
-VegBank_plot_data_NCMts <- read_excel(file.path(data_raw, "CVS-NCMts_no_notes.xlsx"), sheet = "plot data", guess_max = min(2000, n_max = NULL))
-VegBank_plot_species_list_NCMts <- read_excel(file.path(data_raw, "CVS-NCMts_no_notes.xlsx"),  sheet = "plot species list", guess_max = min(2000, n_max = NULL))
+VegBank_plot_data_NCMts <- read_excel(file.path(data_raw, "CVS-NCMts_no_notes.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL))
+VegBank_plot_species_list_NCMts <- read_excel(file.path(data_raw, "CVS-NCMts_no_notes.xlsx"),  sheet = "plot species list", guess_max = min(4000, n_max = NULL))
 
 #UGH cannot get this to work..saved the sheets as csv files and trying to import that way
 #VegBank_plot_species_list_NCMts <- read_csv(file.path(data_raw, "CVS-NCMts_plot_species_list.csv"))
 #VegBank_plot_data_NCMts <- read_csv(file.path(data_raw, "CVS-NCMts_plot_data.csv"))
 
 #Import NEW Exotic Status Authority document
-KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority.csv")
+KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority_031621.csv")
 
 
 
@@ -53,11 +53,12 @@ VegBank_plot_data_NCMts$`Observation Start Date` <- gsub("UTC", " ", VegBank_plo
 
 unique(VegBank_plot_data_NCMts$`Observation Start Date`)
 
-VegBank_plot_data_NCMts$`Observation Start Date` <- as.numeric(VegBank_plot_data_NCMts$`Observation Start Date`)
-
 VegBank_plot_data_NCMts <- VegBank_plot_data_NCMts %>% drop_na(`Observation Start Date`)
 
-samlevel <- VegBank_plot_data_NCMts$`Sampling Level`
+VegBank_plot_data_NCMts <- VegBank_plot_data_NCMts %>%
+ filter(str_detect(`Real Latitude`, "\\d")) %>%
+  filter(str_detect(`Real Longitude`, "\\d")) %>%
+   filter(str_detect(`Taxon Observation Area`, "\\d")) 
 
 ```
 
@@ -564,6 +565,8 @@ VegBank_NCMts$bestname <- gsub("Sphagnum spp.", "Sphagnum", VegBank_NCMts$bestna
 
 #these two Stellaria species listed are the only two in the genus so just reducing to genus
 VegBank_NCMts$bestname <- gsub("Stellaria pubera/corei complex", "Stellaria", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Aronia prunifolia", "Aronia atropurpurea", VegBank_NCMts$bestname)
 
 
 ```
