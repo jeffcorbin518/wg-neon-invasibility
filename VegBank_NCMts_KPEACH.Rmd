@@ -30,14 +30,39 @@ data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
 data_output <- file.path(shared_data_dir, "output_files")
 
 #New file path to shared folder
-VegBank_plot_data_NCMts <- read_excel(file.path(data_raw, "CVS-NCMts.xlsx"), sheet = "plot data")
-VegBank_plot_species_list_NCMts <- read_excel(file.path(data_raw, "CVS-NCMts.xlsx"),  sheet = "plot species list")
+#Use the guess_max argument to increase the number of rows that are read to guess the column type. The default is 1000 and here we reset it to 2000. In the case of our example dataset this didn’t work because the problems appeared lower down but it often will. You can add an n_max value (shown below as NULL) where you know the maximum number of rows.( This did not solve the issue). Tried manually setting column types but also did not work. I opened the excel sheets on my computer and saw the researcher had added "notes" to the first cell in each column with some metadata. A great idea for tying metadata to the associated column but super annoying for R. Importing again without the notes. 
+VegBank_plot_data_NCMts <- read_excel(file.path(data_raw, "CVS-NCMts_no_notes.xlsx"), sheet = "plot data", guess_max = min(2000, n_max = NULL))
+VegBank_plot_species_list_NCMts <- read_excel(file.path(data_raw, "CVS-NCMts_no_notes.xlsx"),  sheet = "plot species list", guess_max = min(2000, n_max = NULL))
+
+#UGH cannot get this to work..saved the sheets as csv files and trying to import that way
+#VegBank_plot_species_list_NCMts <- read_csv(file.path(data_raw, "CVS-NCMts_plot_species_list.csv"))
+#VegBank_plot_data_NCMts <- read_csv(file.path(data_raw, "CVS-NCMts_plot_data.csv"))
 
 #Import NEW Exotic Status Authority document
 KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority.csv")
 
 
+
+
 ```
+Extra cleanup
+
+```{r}
+
+VegBank_plot_data_NCMts$`Observation Start Date` <- gsub("UTC", " ", VegBank_plot_data_NCMts$`Observation Start Date`)
+
+unique(VegBank_plot_data_NCMts$`Observation Start Date`)
+
+VegBank_plot_data_NCMts$`Observation Start Date` <- as.numeric(VegBank_plot_data_NCMts$`Observation Start Date`)
+
+VegBank_plot_data_NCMts <- VegBank_plot_data_NCMts %>% drop_na(`Observation Start Date`)
+
+samlevel <- VegBank_plot_data_NCMts$`Sampling Level`
+
+```
+
+
+
 
 Selecting the columns I will need from the VegBank data to make a new dataset that will be compatible to merge with the PAINLES_25Oct2020 datasheet
 
@@ -604,6 +629,13 @@ to_be_matched <- to_be_matched %>%
 
 ```
 
+```{r}
+
+no_match <- unique(no_match)
+
+```
+
+
 Adding made up SpCodes for the hybrid rows
 
 ```{r}
@@ -628,6 +660,7 @@ Adding species codes to rows with matches
 
 ```{r}
 
+VegBank_NCMts <- unique(VegBank_NCMts)
 
 VegBank_with_SpCode_NCMts1 <- dplyr::inner_join(VegBank_NCMts, KPEACH_ExoticStatus_authority, by="bestname")
 
