@@ -30,13 +30,37 @@ data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
 data_output <- file.path(shared_data_dir, "output_files")
 
 #New file path to shared folder
-VegBank_plot_data_NC_fringe <- read_excel(file.path(data_raw, "CVS-NCFringePlots.xlsx"), sheet = "plot data")
-VegBank_plot_species_list_NC_fringe  <- read_excel(file.path(data_raw, "CVS-NCFringePlots.xlsx"),  sheet = "plot species list")
+VegBank_plot_data_NC_fringe <- read_excel(file.path(data_raw, "CVS-NCFringePlots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL))
+VegBank_plot_species_list_NC_fringe  <- read_excel(file.path(data_raw, "CVS-NCFringePlots.xlsx"),  sheet = "plot species list", guess_max = min(4000, n_max = NULL))
 
 #Import NEW Exotic Status Authority document
-KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority.csv")
+KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority_031621.csv")
 
 ```
+
+Extra cleanup
+
+```{r}
+
+VegBank_plot_data_NC_fringe$`Observation Start Date` <- gsub("UTC", " ", VegBank_plot_data_NC_fringe$`Observation Start Date`)
+
+unique(VegBank_plot_data_NC_fringe$`Observation Start Date`)
+
+VegBank_plot_data_NC_fringe <- VegBank_plot_data_NC_fringe %>% drop_na(`Observation Start Date`)
+
+VegBank_plot_data_NC_fringe <- VegBank_plot_data_NC_fringe %>%
+   filter(str_detect(`Taxon Observation Area`, "\\d")) 
+
+VegBank_plot_species_list_NC_fringe <- VegBank_plot_species_list_NC_fringe %>% drop_na(currentTaxonNameWithSp)
+
+VegBank_plot_species_list_NC_fringe$cover <- as.numeric(VegBank_plot_species_list_NC_fringe$cover)
+
+unique(VegBank_plot_species_list_NC_fringe$cover)
+
+VegBank_plot_species_list_NC_fringe <- VegBank_plot_species_list_NC_fringe %>% drop_na(cover)
+
+```
+
 
 Selecting the columns I will need from the VegBank data to make a new dataset that will be compatible to merge with the PAINLES_25Oct2020 datasheet
 
@@ -63,7 +87,7 @@ VegBank_NC_fringe <- VegBank_NC_fringe %>%
   mutate('Year' = substr(VegBank_NC_fringe$Year, 1, 4))
 
 #Adding a site column
-VegBank_NC_fringe <- VegBank_NC_fringe %>% add_column(Dataset = 'VEGBANK', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
+VegBank_NC_fringe <- VegBank_NC_fringe %>% add_column(Dataset = 'VEGBANK_NC_fringe', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
 
 #Making exotic status compatible to NEON data
 VegBank_NC_fringe$ExoticStatus <- gsub("native", "N", VegBank_NC_fringe$ExoticStatus)
@@ -348,6 +372,18 @@ VegBank_NC_fringe5 <- VegBank_with_SpCode_NC_fringe %>% rename('Duration' = 'USD
 
 
 ```
+
+Looking for source of duplicates
+
+```{r}
+
+#4 duplicates. Identical except for cover value
+
+duplicates <- VegBank_NC_fringe5 %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
+
+```
+
+
 
 Exporting full data table
 
