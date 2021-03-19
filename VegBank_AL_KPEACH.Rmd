@@ -33,11 +33,35 @@ data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
 data_output <- file.path(shared_data_dir, "output_files")
 
 #New file path to shared folder
-VegBank_plot_data_AL <- read_excel(file.path(data_raw, "CVS-ALplots.xlsx"), sheet = "plot data")
-VegBank_plot_species_list_AL <- read_excel(file.path(data_raw, "CVS-ALplots.xlsx"),  sheet = "plot species list")
+VegBank_plot_data_AL <- read_excel(file.path(data_raw, "CVS-ALplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL))
+VegBank_plot_species_list_AL <- read_excel(file.path(data_raw, "CVS-ALplots.xlsx"),  sheet = "plot species list", guess_max = min(4000, n_max = NULL))
 
 #Import NEW Exotic Status Authority document
-KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority.csv")
+KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority_031621.csv")
+
+
+```
+
+Extra cleanup
+
+```{r}
+
+VegBank_plot_data_AL$`Observation Start Date` <- gsub("UTC", " ", VegBank_plot_data_AL$`Observation Start Date`)
+
+#unique(VegBank_plot_data_AL$`Observation Start Date`)
+
+VegBank_plot_data_AL <- VegBank_plot_data_AL %>% drop_na(`Observation Start Date`)
+
+VegBank_plot_data_AL <- VegBank_plot_data_AL %>%
+   filter(str_detect(`Taxon Observation Area`, "\\d")) 
+
+VegBank_plot_species_list_AL <- VegBank_plot_species_list_AL %>% drop_na(currentTaxonNameWithSp)
+
+VegBank_plot_species_list_AL$cover <- as.numeric(VegBank_plot_species_list_AL$cover)
+
+unique(VegBank_plot_species_list_AL$cover)
+
+VegBank_plot_species_list_AL <- VegBank_plot_species_list_AL %>% drop_na(cover)
 
 
 ```
@@ -73,7 +97,7 @@ VegBank_AL <- VegBank_AL %>%
   mutate('Year' = substr(VegBank_AL$Year, 1, 4))
 
 #Adding dataset and zone columns. The dataset names in the existing NEON database are pretty broad (ex. 'BLM') so VegBank seems ok but I could always add the region ID. VegBank_AK instead of VegBank if we want more precision here
-VegBank_AL <- VegBank_AL %>% add_column(Dataset = 'VEGBANK', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
+VegBank_AL <- VegBank_AL %>% add_column(Dataset = 'VEGBANK_AL', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
 
 ```
 
@@ -102,6 +126,8 @@ VegBank_AL$bestname <- gsub("subspecies", "ssp.", VegBank_AL$bestname)
 VegBank_AL$bestname <- gsub("ssp..", "ssp.", VegBank_AL$bestname)
 
 VegBank_AL$bestname <- gsub("\\bsp\\.\\b", " ", VegBank_AL$bestname, ignore.case = FALSE)
+
+VegBank_AL$bestname <- gsub("\\bSP\\.\\b", " ", VegBank_AL$bestname)
 
 #strip white space
 VegBank_AL$bestname  <- trimws(VegBank_AL$bestname, which = c("right"))
@@ -380,6 +406,15 @@ VegBank_AL5 <- VegBank_with_SpCode_AL %>% rename('Duration' = 'USDA_Duration') %
 
 ```
 
+Looking for source of duplicates
+
+```{r}
+
+#2 rows that are identical except for cover value
+
+duplicates <- VegBank_AL5 %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
+
+```
 
 ```{r}
 
@@ -396,10 +431,6 @@ VegBank_AL6 <- VegBank_AL5 %>%
 #Just using this to see if any rows are dropped because there is no latitute and longitude. There really ought to be lat and long so just trying to catch that here
 VegBank_AL6 <- VegBank_AL6 %>% drop_na(Lat)
 
-#Trying to find duplicates creeping up in the final merged data
-duplicates <- VegBank_AL6 %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
-
-VegBank_AL6 %>% distinct()
 
 #As csv
 write.csv(VegBank_AL6,"/home/shares/neon-inv/output_files/VegBank_AL_KPEACH_reduced.csv", row.names = FALSE)

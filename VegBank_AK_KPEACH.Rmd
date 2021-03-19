@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Loading packages 
 
 ```{r, message=FALSE, warning=FALSE}
+
 library(readr)
 library(readxl)
 library(tidyverse)
@@ -24,34 +25,57 @@ library(stringdist)
 ## Import Data
 
 ```{r, message = FALSE}
+
 # Paths to data
 shared_data_dir <- "/home/shares/neon-inv"
 data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
 data_output <- file.path(shared_data_dir, "output_files")
 
-#Import existing NEON database from shared folder
-#PAINLES_25Oct2020 <- read_csv(file.path(data_raw,"PAINLES_25Oct2020.csv"),   
- #                             col_types = cols(Site = col_character(),
- #                                              NEONvst_status = col_character())
- #                             )
+#Import existing NEON database from shared folder. You don't really need to do this every time. It just helped me to use it as a template when I was writing the code
+PAINLES_25Oct2020 <- read_csv(file.path(data_raw,"PAINLES_25Oct2020.csv"),   
+                              col_types = cols(Site = col_character(),
+                                              NEONvst_status = col_character())
+                             )
 
-#New file path to shared folder
+#Importing site data from NCEAS/NEON shared folder. these two sheets are the ones that have everything I need to match the PAINLES_25Oct2020 doc but there are other sheets with environmental info etc
 VegBank_plot_data_AK <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"), sheet = "plot data")
 VegBank_plot_species_list_AK <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"),  sheet = "plot species list")
 
-#Import NEW Exotic Status Authority document
-#KPEACH_ExoticStatus_authority <- read_csv(file.path(data_output,"KPEACH_ExoticStatus_authority.csv"))
-
-#testing out the new and improved authority doc
+#Import NEW Exotic Status Authority document. 
 KPEACH_ExoticStatus_authority <- read_csv(file.path(data_output,"KPEACH_ExoticStatus_authority_031621.csv"))
 
 
 ```
 
+Extra cleanup. Some of the dates were followed by the letters "UTC" which we don't need. 
+
+```{r}
+
+VegBank_plot_data_AK$`Observation Start Date` <- gsub("UTC", " ", VegBank_plot_data_AK$`Observation Start Date`)
+
+unique(VegBank_plot_data_AK$`Observation Start Date`)
+
+VegBank_plot_data_AK <- VegBank_plot_data_AK %>% drop_na(`Observation Start Date`)
+
+VegBank_plot_data_AK <- VegBank_plot_data_AK %>%
+   filter(str_detect(`Taxon Observation Area`, "\\d")) 
+
+VegBank_plot_species_list_AK <- VegBank_plot_species_list_AK %>% drop_na(currentTaxonNameWithSp)
+
+VegBank_plot_species_list_AK$cover <- as.numeric(VegBank_plot_species_list_AK$cover)
+
+unique(VegBank_plot_species_list_AK$cover)
+
+VegBank_plot_species_list_AK <- VegBank_plot_species_list_AK %>% drop_na(cover)
+
+
+```
+
+
 
 Selecting the columns I will need from the VegBank data to make a new dataset that will be compatible to merge with the PAINLES_25Oct2020 datasheet and renaming the columns to match up.
 
-I have in my meeting notes that I should only use rows with a "Sampling Level" of 4 or higher. 
+I renamed several columns to match the column names of the NEON template data. I used the 'Real Latitude" and 'Real Longitude' as the 'Lat' and 'Long' columns. The VegBank data also had columns named 'Public Latitude' and 'Public Longitude' which I also included, but did not rename. I filtered the data to only include rows with a ‘Sampling Level’ > 3. All of the rows in the final output tables should have a Sampling Level of 4 or 5. I used the author observation code ('authorObsCode') from the VegBank data as the 'UniqueID'.
 
 ```{r}
 
@@ -79,7 +103,7 @@ unique(VegBank_AK$`Sampling Level`)
 
 ```
 
-Misc Cleanup
+I reduced the sampling date to just include the year to match the NEON data. I added ‘Dataset’ and ‘Zone’ columns to the VegBank data so that it would match the NEON data. For all sites the ‘Zone’ was ‘L48’. The ‘Dataset’ name for all sites was ‘VegBank’ followed by the geographic abbreviation assigned to the site. For example, the Dataset name for the VegBank data from Alaska is ‘VegBank_AK’.
 
 ```{r}
 
@@ -89,7 +113,7 @@ VegBank_AK <- VegBank_AK %>%
 
 #Adding dataset and zone columns. The dataset names in the existing NEON database are pretty broad (ex. 'BLM') so VegBank seems ok, but I could always add the region ID. VegBank_AK instead of VegBank if we want more precision here
 VegBank_AK <- VegBank_AK %>% 
-  add_column(Dataset = 'VEGBANK', .before = "VegBankUniqueID")  %>% 
+  add_column(Dataset = 'VEGBANK_AK', .before = "VegBankUniqueID")  %>% 
   add_column(Zone = 'L48', .before = "VegBankUniqueID")
 
 ```
@@ -97,7 +121,7 @@ VegBank_AK <- VegBank_AK %>%
 
 Recoding "Native" and "Exotic" statuses in the VegBank data to match the NEON data
 
-*to self- probably could concatenate within gsub to reduce this?
+Anything described as "Native" in the VegBank data was given an 'N" code and anything "Exotic" was given an "I" code. Like the NEON data, the VegBank 'ExoticStatus' refers to native status in the lower 48 US states. Currently, we are not using the exotic status data that the VegBank data came with but I wanted it to at least be in a compatible format.
 
 ```{r}
 
@@ -111,12 +135,14 @@ VegBank_AK$ExoticStatus <- gsub("EXOTIC", "I", VegBank_AK$ExoticStatus)
 
 Recoding "Y" (which indicates, YES this species is woody) to "Woody" to match the NEON data and the GrowthForm column
 
+The Woodiness VegBank data included more variety within the herbaceous category (ex. "Herb Vine", "Herb Shrub", "Herb Shrub Vine"). These were reduced to "Herbaceous" to match the NEON binomial categorization of "Woody" vs. "Herbaceous" for this column.
+
 ```{r}
 
 #Making the Woodiness column math the NEON 
 VegBank_AK$Woodiness <- gsub("Y", "Woody", VegBank_AK$Woodiness)
 
-# Give any row with a GrowthForm that includes "Herb" (ex. "Herb", "Herb Vine", "Herb Shrub") a Woodiness classification of ""Herbaceous"". 
+# Give any row with a GrowthForm that includes "Herb" (ex. "Herb", "Herb Vine", "Herb Shrub") a Woodiness classification of ""Herbaceous" in the Woodiness column". 
 VegBank_AK <- VegBank_AK  %>% 
   mutate(Woodiness = ifelse(GrowthForm %in% c("Herb", "Herb Vine", "Herb Shrub", "Herb Shrub Vine"), 'Herbaceous', Woodiness))
 
@@ -137,6 +163,8 @@ VegBank_AK$bestname <- gsub("ssp..", "ssp.", VegBank_AK$bestname)
 
 VegBank_AK$bestname <- gsub("\\bsp\\.\\b", " ", VegBank_AK$bestname, ignore.case = FALSE)
 
+VegBank_AK$bestname <- gsub("\\bSP\\.\\b", " ", VegBank_AK$bestname, ignore.case = FALSE)
+
 #strip white space
 VegBank_AK$bestname  <- trimws(VegBank_AK$bestname, which = c("right"))
 
@@ -146,6 +174,8 @@ VegBank_AK$bestname  <- trimws(VegBank_AK$bestname, which = c("right"))
 Making a data table with taxonomic names that include multiple specific epithets
 
 The USDA Plant list includes SOME hybrids so we want to make sure we've cleaned up the rows that list multiple specific epithets or multiple genera to maximize the probability of finding a match with the NEON/USDA plant list
+
+There were many examples of either hybridization or a lack of confidence in species ID in the VegBank data. For example, some genera were followed by 2-3 specific epithets,  ex. "Fraxinus [americana + biltmoreana + smallii]". I made a new data table (for each site) that only includes rows with multiple specific epithets. Those can be found in the output file shared folder on the NCEAS server (http://aurora.nceas.ucsb.edu/home/shares/neon-inv/output_files). For example, the csv file that has all of the rows with multiple specific epithets for the Virginia dataset are in a file named "multiple_sp_VA_KPEACH.csv". The file naming convention for all of the other sites is the same. I removed the brackets around the species and kept those rows in the datatable.
 
 ```{r}
 
@@ -168,6 +198,9 @@ Removing the brackets from these rows from the main data set until I can find a 
 ```{r}
 
 VegBank_AK$bestname  <- str_replace_all(VegBank_AK$bestname , "\\*|\\[|\\]", "")
+
+
+VegBank_AK$bestname  <- str_replace_all(VegBank_AK$bestname , "\\*|\\{|\\}", "")
 
 ```
 
@@ -239,7 +272,7 @@ to_be_matched <- to_be_matched %>%
     filter(bestname != "Lichen") %>%
     filter(bestname != "Liverwort") %>%
     filter(bestname != "Bryophyte") %>%
-    filter(bestname != "{Unknown}") %>%
+    filter(bestname != "Unknown") %>%
  filter(!str_detect(bestname, "\\d"))
 
 
@@ -320,7 +353,7 @@ VegBank_with_SpCode_AK <- VegBank_with_SpCode_AK %>%
 ```
 
 
-Renaming USDA_Duration column to just 'Duration' per Lais' request
+Renaming USDA_Duration column to just 'Duration' 
 
 ```{r}
 
@@ -330,14 +363,23 @@ VegBank_AK5 <- VegBank_with_SpCode_AK %>%
 
 ```
 
+Looking for source of duplicates
 
-```{r, eval=FALSE}
+```{r}
+
+#0 duplicates
+
+duplicates <- VegBank_AK5 %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
+
+```
+
+```{r}
 
 #This line is not working
 #write.csv(VegBank_AK5, file.path(data_output,"VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE))
 
 #Manual save
-#write.csv(VegBank_AK5,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE)
+write.csv(VegBank_AK5,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE)
 
 ```
 
@@ -349,18 +391,15 @@ VegBank_AK6 <- VegBank_AK5 %>%
 #Just using this to see if any rows are dropped because there is no latitute and longitude. There really ought to be lat and long so just trying to catch that here
 VegBank_AK6 <- VegBank_AK6 %>% drop_na(Lat)
 
-#Trying to find duplicates creeping up in the final merged data
-duplicates <- VegBank_AK6 %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
-
 
 ```
 
 ```{r}
 
 #As csv
-#write.csv(VegBank_AK6,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
+write.csv(VegBank_AK6,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
 
-#write.csv(VegBank_AK6,"VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
+write.csv(VegBank_AK6,"VegBank_AK_KPEACH_reduced.csv", row.names = FALSE)
 
 
 ```
