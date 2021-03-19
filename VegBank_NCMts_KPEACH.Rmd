@@ -56,9 +56,15 @@ unique(VegBank_plot_data_NCMts$`Observation Start Date`)
 VegBank_plot_data_NCMts <- VegBank_plot_data_NCMts %>% drop_na(`Observation Start Date`)
 
 VegBank_plot_data_NCMts <- VegBank_plot_data_NCMts %>%
- filter(str_detect(`Real Latitude`, "\\d")) %>%
-  filter(str_detect(`Real Longitude`, "\\d")) %>%
    filter(str_detect(`Taxon Observation Area`, "\\d")) 
+
+VegBank_plot_species_list_NCMts <- VegBank_plot_species_list_NCMts %>% drop_na(currentTaxonNameWithSp)
+
+VegBank_plot_species_list_NCMts$cover <- as.numeric(VegBank_plot_species_list_NCMts$cover)
+
+unique(VegBank_plot_species_list_NCMts$cover)
+
+VegBank_plot_species_list_NCMts <- VegBank_plot_species_list_NCMts %>% drop_na(cover)
 
 ```
 
@@ -87,7 +93,7 @@ VegBank_NCMts <- VegBank_NCMts %>%
   mutate('Year' = substr(VegBank_NCMts$Year, 1, 4))
 
 #Adding a site column
-VegBank_NCMts <- VegBank_NCMts %>% add_column(Dataset = 'VEGBANK', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
+VegBank_NCMts <- VegBank_NCMts %>% add_column(Dataset = 'VEGBANK_NCMts', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
 
 #Making exotic status compatible to NEON data
 VegBank_NCMts$ExoticStatus <- gsub("native", "N", VegBank_NCMts$ExoticStatus)
@@ -703,6 +709,17 @@ VegBank_NCMts5 <- VegBank_with_SpCode_NCMts %>% rename('Duration' = 'USDA_Durati
 
 
 ```
+
+Looking for source of duplicates
+
+```{r}
+
+#4 duplicates. Identical except for cover value
+
+duplicates <- VegBank_NCMts5 %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
+
+```
+
 
 Exporting full data table
 
