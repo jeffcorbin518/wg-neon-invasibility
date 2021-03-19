@@ -37,14 +37,40 @@ data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
 data_output <- file.path(shared_data_dir, "output_files")
 
 #New file path to shared folder
-VegBank_plot_data_VA <- read_excel(file.path(data_raw, "CVA-VAplots.xlsx"), sheet = "plot data")
-VegBank_plot_species_list_VA <- read_excel(file.path(data_raw, "CVA-VAplots.xlsx"),  sheet = "plot species list")
+VegBank_plot_data_VA <- read_excel(file.path(data_raw, "CVA-VAplots.xlsx"), sheet = "plot data", guess_max = min(4000, n_max = NULL))
+VegBank_plot_species_list_VA <- read_excel(file.path(data_raw, "CVA-VAplots.xlsx"),  sheet = "plot species list", guess_max = min(4000, n_max = NULL))
 
 #Import NEW Exotic Status Authority document
-KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority.csv")
+KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority_031621.csv")
 
 
 ```
+
+
+Extra cleanup
+
+```{r}
+
+VegBank_plot_data_VA$`Observation Start Date` <- gsub("UTC", " ", VegBank_plot_data_VA$`Observation Start Date`)
+
+#unique(VegBank_plot_data_VA$`Observation Start Date`)
+
+VegBank_plot_data_VA <- VegBank_plot_data_VA %>% drop_na(`Observation Start Date`)
+
+VegBank_plot_data_VA <- VegBank_plot_data_VA %>%
+   filter(str_detect(`Taxon Observation Area`, "\\d")) 
+
+VegBank_plot_species_list_VA <- VegBank_plot_species_list_VA %>% drop_na(currentTaxonNameWithSp)
+
+VegBank_plot_species_list_VA$cover <- as.numeric(VegBank_plot_species_list_VA$cover)
+
+unique(VegBank_plot_species_list_VA$cover)
+
+VegBank_plot_species_list_VA <- VegBank_plot_species_list_VA %>% drop_na(cover)
+
+
+```
+
 
 Selecting the columns I will need from the VegBank data to make a new dataset that will be compatible to merge with the PAINLES_25Oct2020 datasheet
 
@@ -69,7 +95,7 @@ VegBank_VA <- VegBank_VA %>%
   mutate('Year' = substr(VegBank_VA$Year, 1, 4))
 
 #Adding a site column
-VegBank_VA <- VegBank_VA %>% add_column(Dataset = 'VEGBANK', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
+VegBank_VA <- VegBank_VA %>% add_column(Dataset = 'VEGBANK_VA', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
 
 unique(VegBank_VA$ExoticStatus)
 
@@ -802,6 +828,16 @@ Renaming USDA_Duration column to just 'Duration'
 
 VegBank_VA5 <- VegBank_with_SpCode_VA %>% rename('Duration' = 'USDA_Duration') %>% select(-Synonym.Symbol)
 
+
+```
+
+Looking for source of duplicates
+
+```{r}
+
+#4 duplicates. Identical except for cover value
+
+duplicates <- VegBank_VA5 %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
 
 ```
 

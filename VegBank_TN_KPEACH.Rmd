@@ -35,10 +35,36 @@ VegBank_plot_data_TN <- read_excel(file.path(data_raw, "CVS-TNplots.xlsx"), shee
 VegBank_plot_species_list_TN <- read_excel(file.path(data_raw, "CVS-TNplots.xlsx"),  sheet = "plot species list")
 
 #Import NEW Exotic Status Authority document
-KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority.csv")
+KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority_031621.csv")
 
 
 ```
+
+
+Extra Cleanup
+
+```{r}
+
+VegBank_plot_data_TN$`Observation Start Date` <- gsub("UTC", " ", VegBank_plot_data_TN$`Observation Start Date`)
+
+unique(VegBank_plot_data_TN$`Observation Start Date`)
+
+VegBank_plot_data_TN <- VegBank_plot_data_TN %>% drop_na(`Observation Start Date`)
+
+VegBank_plot_data_TN <- VegBank_plot_data_TN %>%
+   filter(str_detect(`Taxon Observation Area`, "\\d")) 
+
+VegBank_plot_species_list_TN <- VegBank_plot_species_list_TN %>% drop_na(currentTaxonNameWithSp)
+
+VegBank_plot_species_list_TN$cover <- as.numeric(VegBank_plot_species_list_TN$cover)
+
+unique(VegBank_plot_species_list_TN$cover)
+
+VegBank_plot_species_list_TN <- VegBank_plot_species_list_TN %>% drop_na(cover)
+
+```
+
+
 
 Selecting the columns I will need from the VegBank data to make a new dataset that will be compatible to merge with the PAINLES_25Oct2020 datasheet
 
@@ -62,7 +88,7 @@ VegBank_TN <- VegBank_TN %>%
   mutate('Year' = substr(VegBank_TN$Year, 1, 4))
 
 #Adding a site column
-VegBank_TN <- VegBank_TN %>% add_column(Dataset = 'VEGBANK', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
+VegBank_TN <- VegBank_TN %>% add_column(Dataset = 'VEGBANK_TN', .before = "VegBankUniqueID")  %>% add_column(Zone = 'L48', .before = "VegBankUniqueID")
 
 #Making exotic status compatible to NEON data
 VegBank_TN$ExoticStatus <- gsub("native", "N", VegBank_TN$ExoticStatus)
@@ -785,6 +811,18 @@ VegBank_TN5 <- VegBank_with_SpCode_TN %>% rename('Duration' = 'USDA_Duration') %
 
 
 ```
+
+Looking for source of duplicates
+
+```{r}
+
+#Two rows identical except for the cover values
+
+duplicates <- VegBank_TN5 %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
+
+```
+
+
 
 Exporting full data table
 
