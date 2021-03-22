@@ -64,7 +64,15 @@ VegBank_plot_species_list_TN <- VegBank_plot_species_list_TN %>% drop_na(cover)
 
 ```
 
+There are >1,000 semi-duplicate rows in the final merged dataset (All_VegBank_KPEACH_reduced.csv) so in this code chunk I am determining how many duplicates are in the data before I even really touch it.
 
+21,696 Duplicate rows are in the data before I do anything to it.
+
+```{r}
+
+duplicates1 <- VegBank_plot_species_list_TN %>% group_by(authorObsCode, currentTaxonNameWithSp) %>% summarise(n_obs = n()) %>% filter(n_obs > 1) %>%  filter(currentTaxonNameWithSp != "{Unknown}") 
+
+```
 
 Selecting the columns I will need from the VegBank data to make a new dataset that will be compatible to merge with the PAINLES_25Oct2020 datasheet
 

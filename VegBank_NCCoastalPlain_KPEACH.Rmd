@@ -59,8 +59,20 @@ unique(VegBank_plot_species_list_NC_coastal$cover)
 
 VegBank_plot_species_list_NC_coastal <- VegBank_plot_species_list_NC_coastal %>% drop_na(cover)
 
+
+
 ```
 
+50 duplicate rows are already in the data before I do anything to it
+
+```{r}
+
+#50 duplicates. Identical except for cover value
+
+duplicates1 <- VegBank_plot_species_list_NC_coastal %>% group_by(authorObsCode, currentTaxonNameWithSp) %>% summarise(n_obs = n()) %>% filter(n_obs > 1) %>%  filter(currentTaxonNameWithSp != "{Unknown}") 
+
+
+```
 
 Selecting the columns I will need from the VegBank data to make a new dataset that will be compatible to merge with the PAINLES_25Oct2020 datasheet
 
