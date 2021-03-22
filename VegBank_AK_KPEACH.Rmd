@@ -26,18 +26,18 @@ library(stringdist)
 
 ```{r, message = FALSE}
 
-# Paths to data
+# Paths to data on server
 shared_data_dir <- "/home/shares/neon-inv"
 data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
 data_output <- file.path(shared_data_dir, "output_files")
 
 #Import existing NEON database from shared folder. You don't really need to do this every time. It just helped me to use it as a template when I was writing the code
-PAINLES_25Oct2020 <- read_csv(file.path(data_raw,"PAINLES_25Oct2020.csv"),   
-                              col_types = cols(Site = col_character(),
-                                              NEONvst_status = col_character())
-                             )
+#PAINLES_25Oct2020 <- read_csv(file.path(data_raw,"PAINLES_25Oct2020.csv"),   
+#                              col_types = cols(Site = col_character(),
+ #                                             NEONvst_status = col_character())
+  #                           )
 
-#Importing site data from NCEAS/NEON shared folder. these two sheets are the ones that have everything I need to match the PAINLES_25Oct2020 doc but there are other sheets with environmental info etc
+#Importing site data from NCEAS/NEON shared folder. These two sheets are the ones that have everything I need to match the PAINLES_25Oct2020 doc but there are other sheets with environmental info etc
 VegBank_plot_data_AK <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"), sheet = "plot data")
 VegBank_plot_species_list_AK <- read_excel(file.path(data_raw, "CVS-AKplots.xlsx"),  sheet = "plot species list")
 
@@ -51,31 +51,40 @@ Extra cleanup. Some of the dates were followed by the letters "UTC" which we don
 
 ```{r}
 
-VegBank_plot_data_AK$`Observation Start Date` <- gsub("UTC", " ", VegBank_plot_data_AK$`Observation Start Date`)
+VegBank_plot_data_AK$`Observation Start Date` <- gsub("UTC", "", VegBank_plot_data_AK$`Observation Start Date`)
 
 unique(VegBank_plot_data_AK$`Observation Start Date`)
 
 VegBank_plot_data_AK <- VegBank_plot_data_AK %>% drop_na(`Observation Start Date`)
 
+#There should be no letters in this column, just numbers
 VegBank_plot_data_AK <- VegBank_plot_data_AK %>%
    filter(str_detect(`Taxon Observation Area`, "\\d")) 
 
 VegBank_plot_species_list_AK <- VegBank_plot_species_list_AK %>% drop_na(currentTaxonNameWithSp)
 
+#Setting the class of the cover column to numeric so that later on I can filter out anything <.10
 VegBank_plot_species_list_AK$cover <- as.numeric(VegBank_plot_species_list_AK$cover)
-
-unique(VegBank_plot_species_list_AK$cover)
 
 VegBank_plot_species_list_AK <- VegBank_plot_species_list_AK %>% drop_na(cover)
 
+#Making sure there are no unexpected values in the cover column
+unique(VegBank_plot_species_list_AK$cover)
+
+```
+There are >1,000 semi-duplicate rows in the final merged dataset (All_VegBank_KPEACH_reduced.csv) so in this code chunk I am determining how many duplicates are in the AK data before I even really touch it.
+
+0 Duplicate rows are in the data before I do anything to it.
+
+```{r}
+
+duplicates1 <- VegBank_plot_species_list_AK %>% group_by(authorObsCode, currentTaxonNameWithSp) %>% summarise(n_obs = n()) %>% filter(n_obs > 1) %>%  filter(currentTaxonNameWithSp != "{Unknown}") 
 
 ```
 
-
-
 Selecting the columns I will need from the VegBank data to make a new dataset that will be compatible to merge with the PAINLES_25Oct2020 datasheet and renaming the columns to match up.
 
-I renamed several columns to match the column names of the NEON template data. I used the 'Real Latitude" and 'Real Longitude' as the 'Lat' and 'Long' columns. The VegBank data also had columns named 'Public Latitude' and 'Public Longitude' which I also included, but did not rename. I filtered the data to only include rows with a ‘Sampling Level’ > 3. All of the rows in the final output tables should have a Sampling Level of 4 or 5. I used the author observation code ('authorObsCode') from the VegBank data as the 'UniqueID'.
+I renamed several columns to match the column names of the NEON template data. I used the 'Real Latitude" and 'Real Longitude' as the 'Lat' and 'Long' columns. The VegBank data also had columns named 'Public Latitude' and 'Public Longitude' which I also included, but did not rename. I filtered the data to only include rows with a ‘Sampling Level’ > 3. All of the rows in the final output tables should have a Sampling Level of 4 or 5. I used the author observation code ('authorObsCode') from the VegBank data as the 'UniqueID'. This number ties the site to the environmental data.
 
 ```{r}
 
@@ -88,7 +97,7 @@ VegBank_plot_data_AK2 <- VegBank_plot_data_AK %>%
   rename( "VegBankUniqueID" = "Author Observation Code","Year" = "Observation Start Date", "Lat" = "Real Latitude", "Long" = "Real Longitude") %>%
   filter(`Sampling Level` > 3)  
 
-
+#While there is a column for USDA code, it is blank for all sites : ()
 VegBank_plot_species_list_AK2 <- VegBank_plot_species_list_AK %>%
   select('authorObsCode', 'currentTaxonNameWithSp', 'cover', 'taxon_growthForm_short', 'taxon_woody', 'taxon_exotic',  'taxon_usda_code', 'taxon_woody') %>%
   rename( 'VegBankUniqueID' = 'authorObsCode','bestname' = 'currentTaxonNameWithSp', 'PctCov' = 'cover', 'SpCode' = 'taxon_usda_code', 'ExoticStatus' = 'taxon_exotic', 'GrowthForm' = 'taxon_growthForm_short', 'Woodiness' = 'taxon_woody')
@@ -96,7 +105,7 @@ VegBank_plot_species_list_AK2 <- VegBank_plot_species_list_AK %>%
 VegBank_AK <- left_join(VegBank_plot_data_AK2, VegBank_plot_species_list_AK2, by = 'VegBankUniqueID')
 
 
-#Check to make sure only Sampling Levels 4 and 5 are included
+#Check to make sure only Sampling Levels 4 and/or 5 are included
 unique(VegBank_AK$`Sampling Level`)
 
 
@@ -107,7 +116,10 @@ I reduced the sampling date to just include the year to match the NEON data. I a
 
 ```{r}
 
-# Reducing sampling date to just the year to match NEON data
+#Inspect the Year column to make sure it is in the format you expect
+unique(VegBank_AK$Year)
+
+# Reduce sampling date to just the year to match NEON data
 VegBank_AK <- VegBank_AK %>% 
   mutate('Year' = substr(VegBank_AK$Year, 1, 4))
 
@@ -161,11 +173,12 @@ VegBank_AK$bestname <- gsub("subsp.", "ssp.", VegBank_AK$bestname)
 VegBank_AK$bestname <- gsub("subspecies", "ssp.", VegBank_AK$bestname)
 VegBank_AK$bestname <- gsub("ssp..", "ssp.", VegBank_AK$bestname)
 
+#If a row has a bestname that is just the genus followed by "sp." it won't match with the exotic status authority document.  Ex. "Viola sp." has to be re-coded to "Viola" for it to line up with the SpCode list and get a match. So I am removing "sp." and "SP." anywhere they appear with a space before and after them. The space requirement prevents gsub from recoding "ssp." to "s", which we don't want.
 VegBank_AK$bestname <- gsub("\\bsp\\.\\b", " ", VegBank_AK$bestname, ignore.case = FALSE)
 
 VegBank_AK$bestname <- gsub("\\bSP\\.\\b", " ", VegBank_AK$bestname, ignore.case = FALSE)
 
-#strip white space
+#Stripping any extra white space from the names
 VegBank_AK$bestname  <- trimws(VegBank_AK$bestname, which = c("right"))
 
 ```
@@ -173,9 +186,9 @@ VegBank_AK$bestname  <- trimws(VegBank_AK$bestname, which = c("right"))
 
 Making a data table with taxonomic names that include multiple specific epithets
 
-The USDA Plant list includes SOME hybrids so we want to make sure we've cleaned up the rows that list multiple specific epithets or multiple genera to maximize the probability of finding a match with the NEON/USDA plant list
+The USDA Plant list includes SOME hybrids so we want to make sure we've cleaned up the rows that list multiple specific epithets or multiple genera to maximize the probability of finding a match with the NEON/USDA plant list. This merits a closer look. Some hybrids are in the plant list with the 'x' with no space followed by a latin name. Ex. "Abies ×shastensis". You could probably fiddle with this a bit and find more matches. 
 
-There were many examples of either hybridization or a lack of confidence in species ID in the VegBank data. For example, some genera were followed by 2-3 specific epithets,  ex. "Fraxinus [americana + biltmoreana + smallii]". I made a new data table (for each site) that only includes rows with multiple specific epithets. Those can be found in the output file shared folder on the NCEAS server (http://aurora.nceas.ucsb.edu/home/shares/neon-inv/output_files). For example, the csv file that has all of the rows with multiple specific epithets for the Virginia dataset are in a file named "multiple_sp_VA_KPEACH.csv". The file naming convention for all of the other sites is the same. I removed the brackets around the species and kept those rows in the datatable.
+There were many examples of either hybridization or a lack of confidence in species ID in the VegBank data. For example, some genera were followed by 2-3 specific epithets,  ex. "Fraxinus [americana + biltmoreana + smallii]". I made a new data table (for each site) that only includes rows with multiple specific epithets. Those can be found in the output file shared folder on the NCEAS server (http://aurora.nceas.ucsb.edu/home/shares/neon-inv/output_files). For example, the csv file that has all of the rows with multiple specific epithets for the Alaska dataset are in a file named "multiple_sp_AK_KPEACH.csv". The file naming convention for all of the other sites is the same. I removed the brackets around the species and kept those rows in the datatable.
 
 ```{r}
 
@@ -186,7 +199,7 @@ VegBank_multiple_species_AK <- VegBank_AK %>%
 VegBank_multiple_species_AK$bestname <- gsub(".\\[|\\]", " ", VegBank_multiple_species_AK$bestname)
 
 #Replacing  + with x because that is how USDA Plant List denotes hybrids
-VegBank_multiple_species_AK$bestname <- gsub(".\\+|\\+.", " x ", VegBank_multiple_species_AK$bestname)
+VegBank_multiple_species_AK$bestname <- gsub(".\\+|\\+.", "x", VegBank_multiple_species_AK$bestname)
 
 #Save as csv for Jeff to inspect
 write.csv(VegBank_multiple_species_AK ,"/home/shares/neon-inv/output_files/multiple_sp_AK_KPEACH.csv", row.names = FALSE)
@@ -194,7 +207,7 @@ write.csv(VegBank_multiple_species_AK ,"/home/shares/neon-inv/output_files/multi
 
 ```
 
-Removing the brackets from these rows from the main data set until I can find a solution. 
+Removing the brackets from these rows from the main data set. They don't do anything
 ```{r}
 
 VegBank_AK$bestname  <- str_replace_all(VegBank_AK$bestname , "\\*|\\[|\\]", "")
@@ -202,10 +215,11 @@ VegBank_AK$bestname  <- str_replace_all(VegBank_AK$bestname , "\\*|\\[|\\]", "")
 
 VegBank_AK$bestname  <- str_replace_all(VegBank_AK$bestname , "\\*|\\{|\\}", "")
 
+
 ```
 
 
-Manually fixing some species. A quick search on USDA's website (https://plants.usda.gov/) can usually tell me what they correct name should be but sometimes it requires a little more searching. For some species that required a little more sleuthing I included a commented out link to a reference website that would help anyone reading this understand why I made the choice I did. 
+Manually fixing some species. A quick search on USDA's website (https://plants.usda.gov/) can usually tell me what the correct name should be but sometimes it requires a little more searching. For some species that required a little more sleuthing I included a commented out link to a reference website that would help anyone reading this understand why I made the choice I did. 
 
 ```{r}
 
@@ -242,7 +256,7 @@ VegBank_AK$bestname <- gsub("Ilex decidua var. decidua", "Ilex decidua", VegBank
 VegBank_AK$bestname <- gsub("Populus deltoides ssp.deltoides", "Populus deltoides", VegBank_AK$bestname)
 
 VegBank_AK$bestname <- gsub("Maianthemum racemosum ssp.racemosum", "Maianthemum racemosum", VegBank_AK$bestname)
-	
+
 
 #strip white space
 VegBank_AK$bestname  <- trimws(VegBank_AK$bestname, which = c("right"))
@@ -254,20 +268,23 @@ Table of species with no match in KPEACH_ExoticStatus_authority table
 
 ```{r}
 
-#44 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed)
+#41 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed) or a category too broad to have a SpCode (ex. Asteraceae)
 no_match <- dplyr::anti_join(VegBank_AK, KPEACH_ExoticStatus_authority, by="bestname")
 
-#Filtering out any row with <.10 in the cover column
+#Making sure the column class is numeric
 no_match$PctCov <- as.numeric(no_match$PctCov) 
 
 #Removing all rows with less than 10% cover
 no_match <- no_match %>% filter(PctCov > .10)
 
+#There should be no rows with NAs in the bestname column
 no_match <- no_match %>% drop_na(bestname)
 
+#The to_be_matched table is just for me to quickly see which rows have possible small errors in them. For some sites there are a lot of rows with just the taxonomic family or division. USDA does not assign SpCodes to families.
 to_be_matched <- no_match %>% 
     filter(!str_detect(bestname,  ".\\+|\\+."))
 
+#For the bigger datasets I started making these temporary "to_be_matched" tables that excluced names that were common in the data but that I knew had no code.
 to_be_matched <- to_be_matched %>% 
     filter(bestname != "Lichen") %>%
     filter(bestname != "Liverwort") %>%
@@ -277,6 +294,8 @@ to_be_matched <- to_be_matched %>%
 
 
 ```
+
+Removing any accidental duplicates that may have come with the data
 
 ```{r}
 
@@ -372,16 +391,19 @@ Looking for source of duplicates
 duplicates <- VegBank_AK5 %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
 
 ```
+Saving the full data table with all of the columns
 
 ```{r}
 
-#This line is not working
+#This line is not working. It would be better if I could use those nice file paths I made at the top
 #write.csv(VegBank_AK5, file.path(data_output,"VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE))
 
 #Manual save
 write.csv(VegBank_AK5,"/home/shares/neon-inv/output_files/VegBank_AK_KPEACH_ALL_COLS.csv", row.names = FALSE)
 
 ```
+
+Making a reduced version that removes all of the columns used to generate the "NEW_GrowthForm" and "NEW-ExoticStatus" columns.
 
 ```{r}
 
@@ -393,6 +415,8 @@ VegBank_AK6 <- VegBank_AK6 %>% drop_na(Lat)
 
 
 ```
+
+Saving reduced file locally and on the server
 
 ```{r}
 
