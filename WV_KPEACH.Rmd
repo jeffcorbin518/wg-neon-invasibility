@@ -1,0 +1,311 @@
+---
+title: "West_Virginia_KPEACH"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Loading packages 
+
+```{r}
+
+library(readr)
+library(readxl)
+library(tidyverse)
+library(knitr)
+library(readxl)
+library(openxlsx)
+library(lubridate)
+
+```
+
+Reading in West Virginia Data (from a zip file delivered by email from Bob Peet)
+
+```{r, message = FALSE}
+
+# Paths to data
+shared_data_dir <- "/home/shares/neon-inv"
+data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
+data_output <- file.path(shared_data_dir, "output_files")
+
+#New file path to shared folder
+#Yikes so many errors
+#Plot_species_list_WV <- read_excel(file.path(data_raw, "West_Virginia_cover_data.xlsx"),  sheet = "Plots-Species", guess_max = min(4000, n_max = NULL))
+
+#Saved the sheets I needed as csv files
+Plot_species_list_WV <- read_csv(file.path(data_raw, "WV_species_data.csv"))
+
+Plot_data_WV <- read_csv(file.path(data_raw, "WV_plot_data.csv"))
+
+#Import NEW Exotic Status Authority document
+KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority_031621.csv")
+
+```
+
+Removing rows with NAs in critical columns
+
+```{r}
+
+
+Plot_data_WV <- Plot_data_WV %>% drop_na(`Survey Date`)
+
+Plot_species_list_WV <- Plot_species_list_WV %>% drop_na(Stratum)
+
+
+
+```
+
+There are >1,000 semi-duplicate rows in the final merged dataset (All_VegBank_KPEACH_reduced.csv) so in this code chunk I am determining how many duplicates are in the data before I even really touch it.
+
+More than 19,000 Duplicate row is in the data before I do anything to it( mostly due to the different stratum).
+
+```{r}
+
+duplicates1 <- Plot_species_list_WV %>% group_by(`Plot Code`, `Scientific Name`) %>% summarise(n_obs = n()) %>% filter(n_obs > 1) 
+
+```
+
+Selecting the columns I will need from the data to make a new dataset that will be compatible to merge with the PAINLES_25Oct2020 datasheet
+
+```{r}
+
+
+
+Plot_data_WV2 <- Plot_data_WV %>%
+  select('Plot Code', 'Former Plot Code', 'Quad Code', 'Survey Date', 'Corrected Lat', 'Corrected Long', 'X Dimension', 'Y Dimension') %>%
+  rename( 'UniqueID' = 'Plot Code','Year' = 'Survey Date', 'Lat' = 'Corrected Lat', 'Long' = 'Corrected Long' ) 
+
+Plot_species_list_WV2 <- Plot_species_list_WV %>%
+  select('Plot Code', 'Scientific Name', 'Stratum', 'Real Cover', 'Uncertain ID?', 'Plant Symbol') %>%
+  rename( 'UniqueID' = 'Plot Code','bestname' = 'Scientific Name', 'PctCov' = 'Real Cover', 'SpCode' = 'Plant Symbol') %>% filter('Uncertain ID?' != TRUE) %>% select(-'Uncertain ID?')
+
+WestVirginia <- left_join(Plot_data_WV2 , Plot_species_list_WV2, by = 'UniqueID')
+
+
+```
+
+```{r}
+
+WestVirginia <- WestVirginia %>% drop_na(Year)
+
+unique(WestVirginia$Year)
+
+#Fixing date format
+WestVirginia$Year <- lubridate::mdy(WestVirginia$Year)
+
+#Reducing sampling date to just the year to match NEON data
+WestVirginia <- WestVirginia %>% 
+  mutate('Year' = substr(WestVirginia$Year, 1, 4))
+
+unique(WestVirginia$Year)
+
+
+#Adding a site column
+WestVirginia <- WestVirginia %>% add_column(Dataset = 'NCVS_WV', .before = "UniqueID")  %>% add_column(Zone = 'L48', .before = "UniqueID")
+
+WestVirginia$bestname <- gsub("\\bsp\\.\\b", " ", WestVirginia$bestname, ignore.case = FALSE)
+
+WestVirginia$bestname <- gsub("\\bSP\\.\\b", " ", WestVirginia$bestname, ignore.case = FALSE)
+
+WestVirginia$bestname <- gsub("\\bL\\.\\b", " ", WestVirginia$bestname, ignore.case = FALSE)
+
+WestVirginia$bestname   <- str_replace_all(WestVirginia$bestname , "\\*|\\[|\\]", "")
+
+WestVirginia$bestname   <- str_replace_all(WestVirginia$bestname , "\\*|\\{|\\}", "")
+
+```
+
+```{r}
+
+unique(WestVirginia$Stratum)
+
+WestVirginia$Stratum <- as.character(WestVirginia$Stratum)
+
+WestVirginia <- WestVirginia %>% filter(Stratum != "T")
+
+WestVirginia <- WestVirginia %>% filter(Stratum != "N")
+
+
+```
+
+Manually fixing names
+```{r}
+
+WestVirginia$bestname <- gsub("Carya alba (L.) Nutt. ex Ell.", "Carya tomentosa", WestVirginia$bestname)
+
+WestVirginia$SpCode <- gsub("CAAL27", "CATO6", WestVirginia$SpCode)
+
+WestVirginia$bestname <- gsub("Polygonum caespitosum Blume var. longisetum (de Bruyn) A.N. Steward", "Polygonum cespitosum var. longisetum", WestVirginia$bestname)
+
+WestVirginia$SpCode <- gsub("POCAL2", "POCEL", WestVirginia$SpCode)
+
+WestVirginia$bestname <- gsub("Eupatorium purpureum L. var. purpureum", "Eutrochium purpureum var. purpureum", WestVirginia$bestname)
+
+WestVirginia$SpCode <- gsub("EUPUP", "EUPUP4", WestVirginia$SpCode)
+
+WestVirginia$bestname <- gsub("Dichanthelium dichotomum (L.) Gould ssp. dichotomum", "Dichanthelium dichotomum var. dichotomum", WestVirginia$bestname)
+
+WestVirginia$SpCode <- gsub("DIDIDWV", "DIDID", WestVirginia$SpCode)
+
+WestVirginia$bestname <- gsub("Acalypha gracilens Gray var. gracilens", "Acalypha gracilens", WestVirginia$bestname)
+
+WestVirginia$SpCode <- gsub("ACGRGWV", "ACGR2", WestVirginia$SpCode)
+
+WestVirginia$bestname <- gsub("\\bsnag\\b", "", WestVirginia$bestname, ignore.case = FALSE)
+
+WestVirginia$bestname <- gsub("\\bSnag\\b", "", WestVirginia$bestname, ignore.case = FALSE)
+
+WestVirginia$bestname <- gsub("\\bSnags\\b", "", WestVirginia$bestname, ignore.case = FALSE)
+
+WestVirginia$bestname <- gsub("\\bsnags\\b", "", WestVirginia$bestname, ignore.case = FALSE)
+
+WestVirginia$bestname <- gsub("\\bSNAGS\\b", "", WestVirginia$bestname, ignore.case = FALSE)
+
+WestVirginia$bestname <- gsub("\\bSNAG\\b", "", WestVirginia$bestname, ignore.case = FALSE)
+
+#Filtering out anything listed as a snag (dead tree) 
+WestVirginia <- WestVirginia %>% 
+  filter(!bestname %in% c("snag", "Snag", "SNAG", "SNAGS", "snags", "Snags", "snag-", "Snags - ", "snag - "))
+
+
+```
+
+
+
+Table of species with no match in KPEACH_ExoticStatus_authority table
+
+```{r}
+
+#44 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed)
+no_match <- dplyr::anti_join(WestVirginia, KPEACH_ExoticStatus_authority, by="SpCode")
+
+
+no_match <- no_match %>% drop_na(bestname)
+
+to_be_matched <- no_match %>% 
+    filter(!str_detect(bestname,  ".\\+|\\+."))
+
+to_be_matched <- to_be_matched %>% 
+    filter(bestname != "Lichen") %>%
+    filter(bestname != "Liverwort") %>%
+    filter(bestname != "Bryophyte") %>%
+    filter(bestname != "Unknown") %>%
+  filter(bestname != "snag") %>%
+   filter(bestname != "snags") %>%
+   filter(bestname != "SNAG") %>%
+   filter(bestname != "Snag") %>%
+ filter(!str_detect(bestname, "\\d"))
+
+to_be_matched <- unique(to_be_matched)
+
+```
+
+Adding made up SpCodes for the hybrid rows
+
+```{r}
+
+#Adding new 'fake' species codes for the rows with no species codes (because they are hybrids or observer was uncertain of ID)
+
+#Making a column of row numbers
+no_match <- cbind(rownames(no_match), data.frame(no_match, row.names=NULL))
+
+#Adding a - so each new species code will just have a 'NOMATCH' then a dash followed by sequential numbers
+numbers <- paste0('-', no_match$`rownames(no_match)`)
+
+#Final step
+no_match <- no_match %>% 
+mutate('SpCode' = paste0("NOMATCH_WV", numbers)) %>% 
+select(-'rownames(no_match)') %>% 
+rename('Former Plot Code' = 'Former.Plot.Code', 'Quad Code' = 'Quad.Code', 'X Dimension' = 'X.Dimension', 'Y Dimension' = 'Y.Dimension')
+
+
+
+```
+
+Adding species codes to rows with matches
+
+```{r}
+
+
+WestVirginia1 <- dplyr::inner_join(WestVirginia, KPEACH_ExoticStatus_authority, by="SpCode")
+
+WestVirginia1 <- distinct(WestVirginia1)
+
+WestVirginia1 <- WestVirginia1 %>%
+  rename("bestname" = "bestname.y", "NCVS_original_scientific_name" = "bestname.x")
+
+#Merging the df that DOES has correct species codes with the no_match table I made with the newly invented species codes
+
+WestVirginia2 <- merge(WestVirginia1, no_match, all = TRUE)
+
+WestVirginia3 <- WestVirginia2 %>%
+  filter(is.na(Synonym.Symbol)) %>%
+  select(-Synonym.Symbol)
+
+
+```
+
+
+```{r}
+
+#Removing punctuation so I can extract only the first word from this column
+WestVirginia3$NEON_GrowthForm <- gsub('[[:punct:]]', " ", WestVirginia3$NEON_GrowthForm)
+
+#Extracting first word
+WestVirginia3$NEON_GrowthForm <- stringr::word(WestVirginia3$NEON_GrowthForm, 1)
+
+#Making new column
+WestVirginia4 <- WestVirginia3  %>%
+  mutate('NEW_GrowthForm' = ifelse(!is.na(NEON_GrowthForm), NEON_GrowthForm, USDA_Growth_Form))
+
+
+```
+
+Renaming USDA_Duration column to just 'Duration' 
+
+```{r}
+
+WestVirginia5 <- WestVirginia4 %>% rename('Duration' = 'USDA_Duration')
+
+
+```
+
+Making a possible Taxon Observation Area column
+```{r}
+
+WestVirginia5$`X Dimension` <- as.numeric(WestVirginia5$`X Dimension`)
+
+WestVirginia5$`Y Dimension` <- as.numeric(WestVirginia5$`Y Dimension`)
+
+WestVirginia5 <- WestVirginia5 %>% mutate('Possible_Taxon_Observation_Area' = `X Dimension` * `Y Dimension`)
+
+```
+
+
+Exporting full data table
+
+```{r}
+
+#As csv
+write.csv(WestVirginia5,"/home/shares/neon-inv/output_files/NCVS_WV_KPEACH_ALL_COLS.csv", row.names = FALSE)
+
+```
+
+Exporting reduced data table
+
+```{r}
+
+WestVirginia6 <- WestVirginia5 %>%
+  select(-'NEON_GrowthForm', -'USDA_Growth_Form', -'USDA_Exotic_Status')
+
+#Just using this to see if any rows are dropped because there is no latitute and longitude. There really ought to be lat and long so just trying to catch that here
+WestVirginia6 <- WestVirginia6  %>% drop_na(Lat)
+
+#As csv
+write.csv(WestVirginia6 ,"/home/shares/neon-inv/output_files/NCVS_WV_KPEACH_reduced.csv", row.names = FALSE)
+
+write.csv(WestVirginia6 ,"NCVS_WV_KPEACH_reduced.csv", row.names = FALSE)
+
+```

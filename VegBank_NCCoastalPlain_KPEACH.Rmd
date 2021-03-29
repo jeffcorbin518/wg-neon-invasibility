@@ -567,6 +567,7 @@ Renaming USDA_Duration column to just 'Duration'
 VegBank_NC_coastal5 <- VegBank_with_SpCode_NC_coastal %>% rename('Duration' = 'USDA_Duration') %>% select(-Synonym.Symbol)
 
 
+
 ```
 
 Looking for source of duplicates

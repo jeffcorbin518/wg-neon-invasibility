@@ -1,0 +1,135 @@
+---
+title: "Merge_VegBank_data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Impo
+
+```{r}
+
+library(readr)
+library(readxl)
+library(here)
+library(tidyverse)
+library(knitr)
+
+# Paths to data
+shared_data_dir <- "/home/shares/neon-inv"
+data_raw <- file.path(shared_data_dir, "raw_VegBank_data")
+data_output <- file.path(shared_data_dir, "output_files")
+
+VegBank_AK_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_AK_KPEACH_reduced.csv"))
+
+VegBank_AL_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_AL_KPEACH_reduced.csv"))
+
+VegBank_FL_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_FL_KPEACH_reduced.csv"))
+
+VegBank_GA_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_GA_KPEACH_reduced.csv"))
+
+VegBank_MS_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_MS_KPEACH_reduced.csv"))
+
+VegBank_NC_coastal_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_NC_coastal_KPEACH_reduced.csv"))
+
+VegBank_NC_fringe_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_NC_fringe_KPEACH_reduced.csv"))
+
+VegBank_NCMts_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_NCMts_KPEACH_reduced.csv"))
+
+VegBank_NCPP_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_NCPP_KPEACH_reduced.csv"))
+
+VegBank_Proj129_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_Proj129_KPEACH_reduced.csv"))
+
+VegBank_SC_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_SC_KPEACH_reduced.csv"))
+
+VegBank_TN_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_TN_KPEACH_reduced.csv"))
+
+VegBank_TX_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_TX_KPEACH_reduced.csv"))
+
+VegBank_VA_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_VA_KPEACH_reduced.csv"))
+
+
+```
+
+
+```{r}
+
+df1 <-  merge(VegBank_AK_KPEACH_reduced, VegBank_AL_KPEACH_reduced, all = TRUE)
+
+df2 <-  merge(df1, VegBank_FL_KPEACH_reduced, all = TRUE)
+
+df3 <-  merge(df2, VegBank_GA_KPEACH_reduced, all = TRUE)
+
+df4 <-  merge(df3, VegBank_MS_KPEACH_reduced, all = TRUE)
+
+df5 <-  merge(df4, VegBank_NC_coastal_KPEACH_reduced, all = TRUE)
+
+df6 <-  merge(df5, VegBank_NC_fringe_KPEACH_reduced, all = TRUE)
+
+df7 <-  merge(df6, VegBank_NCMts_KPEACH_reduced, all = TRUE)
+
+df8 <-  merge(df7, VegBank_NCPP_KPEACH_reduced, all = TRUE)
+
+df9 <-  merge(df8, VegBank_Proj129_KPEACH_reduced, all = TRUE)
+
+df10 <-  merge(df9, VegBank_SC_KPEACH_reduced, all = TRUE)
+
+df11 <-  merge(df10, VegBank_TN_KPEACH_reduced, all = TRUE)
+
+df12 <-  merge(df11, VegBank_TX_KPEACH_reduced, all = TRUE)
+
+All_VegBank_KPEACH_reduced <-  merge(df12, VegBank_VA_KPEACH_reduced, all = TRUE)
+
+
+
+
+```
+
+Quality Checks
+
+```{r}
+
+All_VegBank_KPEACH_reduced  <- unique(All_VegBank_KPEACH_reduced)
+
+#unique(All_VegBank_KPEACH_031621$previousObsCode)
+#No rows have a previous observation code so removing this column
+All_VegBank_KPEACH_reduced <- All_VegBank_KPEACH_reduced %>% select(-'previousObsCode')
+
+#Looking for duplicate rows. It looks like there are some semi-duplicate rows in the final merged data table (aka rows with the same SpCode and VegBankUniqueID but unique cover values). It looks like those came from 1 of 2 sources: 1. The data came with them. Someone accidentally input two rows for the same species with two different cover values. OR 2. When I renamed certain species it made two rows look like semi-duplicates. For example, a researcher may record a .5 cover value for  _Verbascum thapsus ssp. thapsus_ and a .3 cover value for  _Verbascum thapsus_ in the same plot and the same year. But _Verbascum thapsus_ does not have any subspecies according to USDA so I reduced _Verbascum thapsus ssp. thapsus_ to _Verbascum thapsus_ manually. Then those two rows would appear identical except for the cover value. 
+duplicates <- All_VegBank_KPEACH_reduced %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
+
+year_NAs <- All_VegBank_KPEACH_reduced[is.na(All_VegBank_KPEACH_reduced$Year),]
+
+#looking for any unexpected values
+unique(All_VegBank_KPEACH_reduced$`Sampling Level`) # Only 4's and 5's which is what we wanted to see
+
+unique(All_VegBank_KPEACH_reduced$Year) #No NAs or weird dates
+
+unique(All_VegBank_KPEACH_reduced$`Taxon Observation Area`)
+
+#No NA taxon observation area
+taxon_obs_area_NAs <- All_VegBank_KPEACH_reduced[is.na(All_VegBank_KPEACH_reduced$`Taxon Observation Area`),]
+
+#Whew. 0 NA rows for bestname
+bestname_NAs <- All_VegBank_KPEACH_reduced[is.na(All_VegBank_KPEACH_reduced$bestname),]
+
+#0 rows with no cover data
+pct_cov_NAs <- All_VegBank_KPEACH_reduced[is.na(All_VegBank_KPEACH_reduced$PctCov),]
+
+```
+
+
+```{r}
+
+
+  #As csv
+write.csv(All_VegBank_KPEACH_reduced,"/home/shares/neon-inv/output_files/All_VegBank_KPEACH_reduced.csv", row.names = FALSE)
+
+write.csv(All_VegBank_KPEACH_reduced,"All_VegBank_KPEACH_reduced.csv", row.names = FALSE)
+
+
+```
+
