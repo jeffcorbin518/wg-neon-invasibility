@@ -452,6 +452,24 @@ VegBank_FL$bestname <- gsub("Polygonum delopyrum", "Polygonella ciliata", VegBan
 
 VegBank_FL$bestname <- gsub("Pteridium aquilinum var. latiusculum var. pseudocaudatum", "Pteridium aquilinum var. latiusculum", VegBank_FL$bestname)
 
+VegBank_FL$bestname <- gsub("Verbascum thapsus ssp.thapsus", "Verbascum thapsus", VegBank_FL$bestname)
+
+VegBank_FL$bestname <- gsub("Sideroxylon lanuginosum ssp.lanuginosum", "Sideroxylon lanuginosum ssp. lanuginosum", VegBank_FL$bestname)
+
+VegBank_FL$bestname <- gsub("Fimbristylis cymosa ssp.cymosa", "Fimbristylis cymosa ssp. cymosa", VegBank_FL$bestname)
+
+VegBank_FL$bestname <- gsub("Silphium asteriscus var. simpsonii", "Silphium asteriscus", VegBank_FL$bestname)
+
+VegBank_FL$bestname <- gsub("Viola edulis", "Viola ×esculenta", VegBank_FL$bestname)
+
+VegBank_FL$bestname <- gsub("Triphora trianthophoros var. trianthophoros", "Triphora trianthophoros", VegBank_FL$bestname)
+
+VegBank_FL$bestname <- gsub("Bryodesma arenicola", "Viola ×esculenta", VegBank_FL$bestname)
+
+VegBank_FL$bestname <- gsub("Bryodesma arenicola", "Selaginella arenicola", VegBank_FL$bestname)
+
+VegBank_FL$bestname <- gsub("Phoradendron leucarpum ssp.leucarpum", "Phoradendron leucarpum", VegBank_FL$bestname)
+
 ```
 
 
@@ -461,12 +479,6 @@ Table of species with no match in KPEACH_ExoticStatus_authority table
 
 #44 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed)
 no_match <- dplyr::anti_join(VegBank_FL, KPEACH_ExoticStatus_authority, by="bestname")
-
-#Filtering out any row with <.10 in the cover column
-no_match$PctCov <- as.numeric(no_match$PctCov) 
-
-#Removing all rows with less than 10% cover
-no_match <- no_match %>% filter(PctCov > .10)
 
 no_match <- no_match %>% drop_na(bestname)
 
