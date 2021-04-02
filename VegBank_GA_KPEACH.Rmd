@@ -359,6 +359,13 @@ VegBank_GA$bestname <- gsub("Opuntia mesacantha", "Opuntia humifusa", VegBank_GA
 
 VegBank_GA$bestname <- gsub("Liatriscata", "Liatris spicata", VegBank_GA$bestname)
 
+VegBank_GA$bestname <- gsub("Triphora trianthophoros var. trianthophoros", "Triphora trianthophoros", VegBank_GA$bestname)
+
+VegBank_GA$bestname <- gsub("Hylodesmum pauciflorum", "Desmodium pauciflorum", VegBank_GA$bestname)
+
+VegBank_GA$bestname <- gsub("Mononeuria uniflora", "Minuartia uniflora", VegBank_GA$bestname)
+
+VegBank_GA$bestname <- gsub("Digitaria filiformis var. filiformis", "Digitaria filiformis", VegBank_GA$bestname)
 
 ```
 
@@ -369,12 +376,6 @@ Table of species with no match in KPEACH_ExoticStatus_authority table
 
 #44 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed)
 no_match <- dplyr::anti_join(VegBank_GA, KPEACH_ExoticStatus_authority, by="bestname")
-
-#Filtering out any row with <.10 in the cover column
-no_match$PctCov <- as.numeric(no_match$PctCov) 
-
-#Removing all rows with less than 10% cover
-no_match <- no_match %>% filter(PctCov > .10)
 
 no_match <- no_match %>% drop_na(bestname)
 
