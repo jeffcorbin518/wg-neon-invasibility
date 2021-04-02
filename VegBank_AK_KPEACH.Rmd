@@ -257,6 +257,8 @@ VegBank_AK$bestname <- gsub("Populus deltoides ssp.deltoides", "Populus deltoide
 
 VegBank_AK$bestname <- gsub("Maianthemum racemosum ssp.racemosum", "Maianthemum racemosum", VegBank_AK$bestname)
 
+VegBank_AK$bestname <- gsub("Dioscorea polystachya", "Dioscorea oppositifolia", VegBank_AK$bestname)
+
 
 #strip white space
 VegBank_AK$bestname  <- trimws(VegBank_AK$bestname, which = c("right"))
@@ -270,12 +272,6 @@ Table of species with no match in KPEACH_ExoticStatus_authority table
 
 #41 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed) or a category too broad to have a SpCode (ex. Asteraceae)
 no_match <- dplyr::anti_join(VegBank_AK, KPEACH_ExoticStatus_authority, by="bestname")
-
-#Making sure the column class is numeric
-no_match$PctCov <- as.numeric(no_match$PctCov) 
-
-#Removing all rows with less than 10% cover
-no_match <- no_match %>% filter(PctCov > .10)
 
 #There should be no rows with NAs in the bestname column
 no_match <- no_match %>% drop_na(bestname)
