@@ -129,6 +129,8 @@ VegBank_NCMts$bestname <- gsub("\\bSP\\.\\b", " ", VegBank_NCMts$bestname)
 #strip white space
 VegBank_NCMts$bestname  <- trimws(VegBank_NCMts$bestname, which = c("right"))
 
+VegBank_NCMts <- VegBank_NCMts %>% drop_na(Lat)
+
 ```
 
 Making a datatable with taxonomic names that include multiple specific epithets
@@ -582,6 +584,20 @@ VegBank_NCMts$bestname <- gsub("Stellaria pubera/corei complex", "Stellaria", Ve
 
 VegBank_NCMts$bestname <- gsub("Aronia prunifolia", "Aronia atropurpurea", VegBank_NCMts$bestname)
 
+VegBank_NCMts$bestname <- gsub("Scutellaria ovata ssp.ovata var. ovata", "Scutellaria ovata ssp. ovata", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Antennaria parlinii ssp.parlinii", "Antennaria parlinii ssp. parlinii", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Monarda fistulosa var. mollis", "Monarda fistulosa ssp. fistulosa var. mollis", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Carduus acanthoides ssp.acanthoides", "Carduus acanthoides", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Physostegia virginiana ssp.praemorsa", "Physostegia virginiana ssp. praemorsa", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Uvularia puberula var. puberula", "Uvularia puberula", VegBank_NCMts$bestname)
+
+VegBank_NCMts$bestname <- gsub("Mentha ×piperita var. piperita", "Mentha ×piperita", VegBank_NCMts$bestname)
+
 
 ```
 
@@ -592,12 +608,6 @@ Table of species with no match in KPEACH_ExoticStatus_authority table
 
 #44 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed)
 no_match <- dplyr::anti_join(VegBank_NCMts, KPEACH_ExoticStatus_authority, by="bestname")
-
-#Filtering out any row with <.10 in the cover column
-no_match$PctCov <- as.numeric(no_match$PctCov) 
-
-#Removing all rows with less than 10% cover
-no_match <- no_match %>% filter(PctCov > .10)
 
 no_match <- no_match %>% drop_na(bestname)
 
@@ -623,6 +633,7 @@ to_be_matched <- to_be_matched %>%
        filter(bestname != "Carex section Acrocystis") %>%
        filter(bestname != "Carex section Ovales") %>%
        filter(bestname != "Poaceae tribe Paniceae") %>%
+  filter(bestname != "Rubus Blackberry") %>%
    filter(bestname != "Carex section Phaestoglochin") %>%
     filter(bestname != "Caryophyllaceae") %>%
     filter(bestname != "Rosaceae") %>%
