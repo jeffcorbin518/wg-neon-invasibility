@@ -437,7 +437,20 @@ VegBank_NC_coastal$bestname <- gsub("Viola acaulescent", "Viola", VegBank_NC_coa
 
 VegBank_NC_coastal$bestname <- gsub("Poa trivialis ssp.trivialis", "Poa trivialis", VegBank_NC_coastal$bestname)
 
-VegBank_NC_coastal$bestname <- gsub("Rubus Dewberry", "Rubus", VegBank_NC_coastal$bestname)
+VegBank_NC_coastal$bestname <- gsub("Bartonia paniculata ssp.paniculata", "Bartonia paniculata ssp. paniculata", VegBank_NC_coastal$bestname)
+
+VegBank_NC_coastal$bestname <- gsub("Physostegia virginiana ssp.virginiana", "Physostegia virginiana ssp. virginiana", VegBank_NC_coastal$bestname)
+
+VegBank_NC_coastal$bestname <- gsub("Asplenium heteroresiliens", "Asplenium ×heteroresiliens", VegBank_NC_coastal$bestname)
+
+VegBank_NC_coastal$bestname <- gsub("Myosotis laxa ssp.laxa", "Myosotis laxa", VegBank_NC_coastal$bestname)
+
+#https://florida.plantatlas.usf.edu/Plant.aspx?id=3936
+VegBank_NC_coastal$bestname <- gsub("Abdra brachycarpa", "Draba brachycarpa", VegBank_NC_coastal$bestname)
+
+VegBank_NC_coastal$bestname <- gsub("Cerastium fontanum ssp.vulgare", "Cerastium fontanum ssp. vulgare", VegBank_NC_coastal$bestname)
+
+VegBank_NC_coastal$bestname <- gsub("Juncus effusus ssp.solutus", "Juncus effusus var. solutus", VegBank_NC_coastal$bestname)
 
 ```
 
@@ -447,12 +460,6 @@ Table of species with no match in KPEACH_ExoticStatus_authority table
 
 #44 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed)
 no_match <- dplyr::anti_join(VegBank_NC_coastal, KPEACH_ExoticStatus_authority, by="bestname")
-
-#Filtering out any row with <.10 in the cover column
-no_match$PctCov <- as.numeric(no_match$PctCov) 
-
-#Removing all rows with less than 10% cover
-no_match <- no_match %>% filter(PctCov > .10)
 
 no_match <- no_match %>% drop_na(bestname)
 
