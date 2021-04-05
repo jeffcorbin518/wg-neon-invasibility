@@ -692,12 +692,6 @@ Table of species with no match in KPEACH_ExoticStatus_authority table
 #44 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed)
 no_match <- dplyr::anti_join(VegBank_TX, KPEACH_ExoticStatus_authority, by="bestname")
 
-#Filtering out any row with <.10 in the cover column
-no_match$PctCov <- as.numeric(no_match$PctCov) 
-
-#Removing all rows with less than 10% cover
-no_match <- no_match %>% filter(PctCov > .10)
-
 no_match <- no_match %>% drop_na(bestname)
 
 to_be_matched <- no_match %>% 
