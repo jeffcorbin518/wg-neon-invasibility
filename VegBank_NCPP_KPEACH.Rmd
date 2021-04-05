@@ -609,6 +609,15 @@ VegBank_NCPP$bestname <- gsub("Silene caroliniana var. caroliniana", "Silene car
 
 VegBank_NCPP$bestname <- gsub("Myriopteris", "Cheilanthes", VegBank_NCPP$bestname)
 
+VegBank_NCPP$bestname <- gsub("Cladanthus mixtus", "Chamaemelum mixtum", VegBank_NCPP$bestname)
+
+VegBank_NCPP$bestname <- gsub("Bartonia paniculata ssp.paniculata", "Bartonia paniculata ssp. paniculata", VegBank_NCPP$bestname)
+
+VegBank_NCPP$bestname <- gsub("Cerastium fontanum ssp.vulgare", "Cerastium fontanum ssp. vulgare", VegBank_NCPP$bestname)
+
+VegBank_NCPP$bestname <- gsub("Mentha ×piperita var. piperita", "Mentha ×piperita", VegBank_NCPP$bestname)
+
+VegBank_NCPP$bestname <- gsub("Ceanothus americanus var. americanus", "Ceanothus americanus", VegBank_NCPP$bestname)
 
 #	Could not find solid substitutes for Stachys matthewsii and Prunus speciosa. Also the genus Periscaria. It looks like some Persicaria are considered Polygonums but maybe not all? 
 
@@ -622,11 +631,6 @@ Table of species with no match in KPEACH_ExoticStatus_authority table
 #44 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed)
 no_match <- dplyr::anti_join(VegBank_NCPP, KPEACH_ExoticStatus_authority, by="bestname")
 
-#Filtering out any row with <.10 in the cover column
-no_match$PctCov <- as.numeric(no_match$PctCov) 
-
-#Removing all rows with less than 10% cover
-no_match <- no_match %>% filter(PctCov > .10)
 
 no_match <- no_match %>% drop_na(bestname)
 
