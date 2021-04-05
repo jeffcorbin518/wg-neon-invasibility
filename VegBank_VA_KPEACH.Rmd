@@ -696,6 +696,10 @@ VegBank_VA$bestname <- gsub("Asclepias tuberosa var. tuberosa", "Asclepias tuber
 
 VegBank_VA$bestname <- gsub("Helianthus maximilianii", "Helianthus maximiliani", VegBank_VA$bestname)
 
+VegBank_VA$bestname <- gsub("Lysimachia borealis", "Trientalis borealis", VegBank_VA$bestname)
+
+VegBank_VA$bestname <- gsub("Aronia prunifolia", "Aronia ×prunifolia", VegBank_VA$bestname)
+
 
 #	Could not find solid substitutes for Stachys matthewsii and Prunus speciosa. Crataegus alleghaniensis appears to be a correct species name according to many sources but it is not in the USDA plant list. A few sites say that it is scarce so I don't want to change the name. There's a bunch of Rubus Blackberry but there are a few species within Rubus with the common name blackberry. So many species aggregates in Rubus
 
@@ -707,12 +711,6 @@ Table of species with no match in KPEACH_ExoticStatus_authority table
 
 #44 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed)
 no_match <- dplyr::anti_join(VegBank_VA, KPEACH_ExoticStatus_authority, by="bestname")
-
-#Filtering out any row with <.10 in the cover column
-no_match$PctCov <- as.numeric(no_match$PctCov) 
-
-#Removing all rows with less than 10% cover
-no_match <- no_match %>% filter(PctCov > .10)
 
 no_match <- no_match %>% drop_na(bestname)
 
