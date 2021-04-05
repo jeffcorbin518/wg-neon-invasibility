@@ -274,6 +274,18 @@ VegBank_NC_fringe$bestname <- gsub("Morella pumila", "Morella cerifera", VegBank
 
 VegBank_NC_fringe$bestname <- gsub("Viola acaulescent", "Viola", VegBank_NC_fringe$bestname)
 
+VegBank_NC_fringe$bestname <- gsub("Bulbostylis capillaris ssp.capillaris", "Bulbostylis capillaris ssp. capillaris", VegBank_NC_fringe$bestname)
+
+#https://swbiodiversity.org/seinet/taxa/index.php?taxauthid=1&taxon=216779&clid=4060
+VegBank_NC_fringe$bestname <- gsub("Dichanthelium webberianum", "Dichanthelium sabulorum var. thinium", VegBank_NC_fringe$bestname)
+
+VegBank_NC_fringe$bestname <- gsub("Carex intumescens var. intumescens", "Carex intumescens", VegBank_NC_fringe$bestname)
+
+#https://florida.plantatlas.usf.edu/Plant.aspx?id=3936
+VegBank_NC_fringe$bestname <- gsub("Abdra brachycarpa", "Draba brachycarpa", VegBank_NC_fringe$bestname)
+
+
+VegBank_NC_fringe$bestname <- gsub("Cerastium fontanum ssp.vulgare", "Cerastium fontanum ssp. vulgare", VegBank_NC_fringe$bestname)
 
 ```
 
@@ -283,12 +295,6 @@ Table of species with no match in KPEACH_ExoticStatus_authority table
 
 #44 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed)
 no_match <- dplyr::anti_join(VegBank_NC_fringe, KPEACH_ExoticStatus_authority, by="bestname")
-
-#Filtering out any row with <.10 in the cover column
-no_match$PctCov <- as.numeric(no_match$PctCov) 
-
-#Removing all rows with less than 10% cover
-no_match <- no_match %>% filter(PctCov > .10)
 
 no_match <- no_match %>% drop_na(bestname)
 
@@ -301,6 +307,9 @@ to_be_matched <- to_be_matched %>%
     filter(bestname != "Bryophyte") %>%
     filter(bestname != "{Unknown}") %>%
   filter(bestname != "Unknown") %>%
+  filter(bestname != "Poaceae") %>%
+  filter(bestname != "Asteraceae") %>%
+  filter(bestname != "Fabaceae") %>%
  filter(!str_detect(bestname, "\\d"))
 
 
