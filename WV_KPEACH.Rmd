@@ -1,6 +1,7 @@
 ---
 title: "West_Virginia_KPEACH"
 output: html_document
+notes: "Eve Beaury started editing 4/17/2021 to incorporate more edits (particularly to taxnonomy, which was fixed outside of R in excel and then joined to the most recent datasheet Kristen had exopoted for WV"
 ---
 
 ```{r setup, include=FALSE}
@@ -173,15 +174,74 @@ WestVirginia <- WestVirginia %>%
 ```
 
 
+Join in names fixed in excel using USDA plants (eg, spelling errors, authors included in name, weird characters, etc.).
+
+```{r}
+names <- read_csv(file.path(data_output, "no_match_WV_EBEAURY.csv"))
+glimpse(names)
+
+# drop unfixed and pull unique
+names_sub = names %>% filter(fixed=="Y") %>% select(bestname, newname, newcode) %>% distinct()
+
+# join to datasheet
+glimpse(WestVirginia)
+WestVirginia_join = left_join(WestVirginia, names_sub, by="bestname") # added some rows?
+
+```
+
+```{r}
+# Merge correct codes to one column
+WestVirginia_join = WestVirginia_join %>% 
+  mutate(finalcode = ifelse(is.na(WestVirginia_join$newcode), SpCode, newcode),
+         finalname = ifelse(is.na(newname), bestname, newname))
+
+# Clean up & drop repeated columns
+glimpse(WestVirginia_join)
+WestVirginia_clean = WestVirginia_join %>% select(-c(bestname, SpCode, newname, newcode)) %>%
+  rename(bestname = finalname, SpCode = finalcode)
+glimpse(WestVirginia_clean)
+
+# Fix weird codes
+WestVirginia_clean %>% filter(SpCode=="Oxalis L.")
+WestVirginia_clean = WestVirginia_clean %>% mutate(SpCode = ifelse(SpCode=="Oxalis L.", "OXALI", SpCode))
+WestVirginia_clean = WestVirginia_clean %>% mutate(SpCode = ifelse(SpCode=="7-Feb", "FEBR7", SpCode))
+
+
+```
+
 
 Table of species with no match in KPEACH_ExoticStatus_authority table
 
 ```{r}
 
 #44 rows with no match after filtering out <.10 cover. These are all hybrids or observations with low confidence in species or genus identification (because multiple genera or species are listed)
-no_match <- dplyr::anti_join(WestVirginia, KPEACH_ExoticStatus_authority, by="SpCode")
+no_match <- dplyr::anti_join(WestVirginia_clean, KPEACH_ExoticStatus_authority, by="SpCode")
+
+unique(no_match$SpCode) # bunch of codes missing from Kristen's exotic status file?
+# wonder if these are species exclusive to this park?
 
 
+```
+Pull Ian's taxonomy to fill in holes
+```{r}
+
+tax <- read_csv(file.path(data_raw, "taxonomy_temp10_revised.csv"))
+glimpse(tax)
+
+# pull codes we need info for
+fix = unique(no_match$SpCode)[c(2:11,13:16)]
+tax %>% filter(Accepted.Symbol %in% fix)
+
+# not many... gonna need to redownload data from USDA
+
+```
+
+
+### EVE STOPPED IN CHUNK ABOVE HERE, NEED TO GET MORE DATA FROM USDA BEFORE CONTINUING
+
+
+Continue
+```{r}
 no_match <- no_match %>% drop_na(bestname)
 
 to_be_matched <- no_match %>% 
@@ -199,8 +259,9 @@ to_be_matched <- to_be_matched %>%
  filter(!str_detect(bestname, "\\d"))
 
 to_be_matched <- unique(to_be_matched)
-
 ```
+
+
 
 Adding made up SpCodes for the hybrid rows
 
@@ -309,3 +370,56 @@ write.csv(WestVirginia6 ,"/home/shares/neon-inv/output_files/NCVS_WV_KPEACH_redu
 write.csv(WestVirginia6 ,"NCVS_WV_KPEACH_reduced.csv", row.names = FALSE)
 
 ```
+
+### EB EDITS START HERE:
+
+Reading in latest data
+```{r}
+# Paths to data
+shared_data_dir <- "/home/shares/neon-inv"
+data_output <- file.path(shared_data_dir, "output_files")
+
+# Latest datasheet
+wv <- read_csv(file.path(data_output, "NCVS_WV_KPEACH_reduced.csv"))
+glimpse(wv)
+
+# Fixed taxonomy
+names <- read_csv(file.path(data_output, "no_match_WV_EBEAURY.csv"))
+glimpse(names)
+
+
+```
+Replace old names/codes with fixed
+
+```{r}
+# Subset taxonomy to only fixed codes
+names_sub = names %>% filter(fixed=="Y")
+
+# Join to datasheet
+wv_join = left_join(wv, names_sub %>% select(-fixed))
+wv_join %>% filter(!is.na(newname)) %>% head()
+
+# Merge correct codes to one column
+wv_join = wv_join %>% mutate(finalcode = ifelse(is.na(wv_join$newcode), SpCode, newcode),
+                   finalname = ifelse(is.na(newname), bestname, newname))
+
+# Clean up & drop columns that will need to be updated
+glimpse(wv_join)
+wv_clean = wv_join %>% select(-c(bestname, SpCode, newname, newcode, NEW_ExoticStatus, ExoticStatus_Origin)) %>%
+  rename(bestname = finalname, SpCode = finalcode)
+colnames(wv_clean)
+colnames(KPEACH_ExoticStatus_authority)
+
+```
+
+Rematch exotic status
+```{r}
+# Load data
+KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority_031621.csv")
+
+# drop columns that already exit
+
+test = inner_join(wv_clean, KPEACH_ExoticStatus_authority, by="SpCode")
+
+```
+
