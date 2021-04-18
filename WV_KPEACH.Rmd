@@ -1,7 +1,8 @@
 ---
 title: "West_Virginia_KPEACH"
 output: html_document
-notes: "Eve Beaury started editing 4/17/2021 to incorporate more edits (particularly to taxnonomy, which was fixed outside of R in excel and then joined to the most recent datasheet Kristen had exopoted for WV"
+notes: "Eve Beaury started editing 4/17/2021 to incorporate more edits (particularly to taxnonomy, which was fixed outside of R in excel and then joined to the most recent datasheet Kristen had exopoted for WV. IMPORTANT: This is saved to the nceas servor but not synced to Kristen's git (I don't have permission)"
+
 ---
 
 ```{r setup, include=FALSE}
