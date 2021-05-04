@@ -134,13 +134,18 @@ WestVirginia <- WestVirginia %>% filter(Stratum != "N")
 
 Drop rows with 0% cover measurements and no info on the observation (basically blank cells)
 ```{r}
-WestVirginia = WestVirginia %>% filter(!bestname==" ")
+WestVirginia = WestVirginia %>% filter(!bestname=="")
 
 ```
 
 
 Manually fixing names
 ```{r}
+
+# remove weird charaters
+WestVirginia$bestname <- gsub(' - ', "", WestVirginia$bestname)
+WestVirginia$bestname <- gsub(' \\(', "", WestVirginia$bestname)
+WestVirginia$bestname <- gsub('\\)', "", WestVirginia$bestname)
 
 WestVirginia$bestname <- gsub("Carya alba (L.) Nutt. ex Ell.", "Carya tomentosa", WestVirginia$bestname)
 
@@ -178,11 +183,6 @@ WestVirginia$bestname <- gsub("\\bSNAG\\b", "", WestVirginia$bestname, ignore.ca
 WestVirginia <- WestVirginia %>% 
   filter(!bestname %in% c("snag", "Snag", "SNAG", "SNAGS", "snags", "Snags", "snag-", "Snags - ", "snag - "))
 
-# remove weird charaters
-WestVirginia$bestname <- gsub(' - ', "", WestVirginia$bestname)
-WestVirginia$bestname <- gsub(' \\(', "", WestVirginia$bestname)
-WestVirginia$bestname <- gsub('\\)', "", WestVirginia$bestname)
-
 
 
 ```
@@ -219,6 +219,7 @@ glimpse(WestVirginia_clean)
 WestVirginia_clean %>% filter(SpCode=="Oxalis L.")
 WestVirginia_clean = WestVirginia_clean %>% mutate(SpCode = ifelse(SpCode=="Oxalis L.", "OXALI", SpCode))
 WestVirginia_clean = WestVirginia_clean %>% mutate(SpCode = ifelse(SpCode=="7-Feb", "FEBR7", SpCode))
+WestVirginia_clean = WestVirginia_clean %>% filter(!SpCode=="snag")
 
 
 ```
@@ -244,101 +245,62 @@ tax <- read_csv(file.path(data_raw, "taxonomy_temp10_revised.csv"))
 glimpse(tax)
 
 # pull codes we need info for
-fix = data.frame(SpCode = unique(no_match$SpCode)[c(2:55,57:70)])
+fix = data.frame(SpCode = unique(no_match$SpCode))
 fix # double check dropped the NA and snag
 missing = fix %>% filter(!(SpCode %in% tax$Accepted.Symbol | SpCode %in% tax$Synonym.Symbol)) # a lot aren't in Ian's thing
 
-```
-
-Not all the updated codes are accepted symbols - fix
-
-```{r}
-
-WestVirginia_clean %>% filter(SpCode=="QUPR2")
-
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(SpCode = replace(SpCode,SpCode=="QUPR2","QUMO4"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(SpCode = replace(SpCode,SpCode=="CAAL27","CATO6"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(SpCode = replace(SpCode,SpCode=="EUPUP","EUPUP4"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(SpCode = replace(SpCode,SpCode=="EUAM7","EUAM9"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(SpCode = replace(SpCode,SpCode=="COVA2","SEVA4"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(SpCode = replace(SpCode,SpCode=="FUPO","FUPO70"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(SpCode = replace(SpCode,SpCode=="ARPAC","ARPA6"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(SpCode = replace(SpCode,SpCode=="ROEG","RORU82"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(SpCode = replace(SpCode,SpCode=="CHBO2","DYBO"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(SpCode = replace(SpCode,SpCode=="MEVI2","VEVI5"))
-
-# names
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(bestname = replace(bestname,SpCode=="QUMO4","Quercus montana"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(bestname = replace(bestname,SpCode=="CATO6","Carya tomentosa"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(bestname = replace(bestname,SpCode=="EUPUP4","Eutrochium purpureum var. purpureum"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(bestname = replace(bestname,SpCode=="EUAM9","Euonymus americanus"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(bestname = replace(bestname,SpCode=="SEVA4","Securigera varia"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(bestname = replace(bestname,SpCode=="FUPO70","Funaria polaris"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(bestname = replace(bestname,SpCode=="ARPA6","Arctostaphylos patula"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(bestname = replace(bestname,SpCode=="RORU82","Rosa rubiginosa"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(bestname = replace(bestname,SpCode=="DYBO","Dysphania botrys"))
-WestVirginia_clean = WestVirginia_clean %>%
-  mutate(bestname = replace(bestname,SpCode=="VEVI5","Veratrum virginicum"))
+# 45 codes that do not match to Ian's taxonomy and aren't in Kristen's key
+# check one example of a synonym code
+glimpse(tax)
+tax %>% filter(Accepted.Symbol=="QUMO4") # ah! so some are in there, just synonym symbol isn't filled in
 
 ```
 
-Check no matches again
+Update some codes using USDA plants
 ```{r}
-no_match <- dplyr::anti_join(WestVirginia_clean, KPEACH_ExoticStatus_authority, by="SpCode")
-unique(no_match$SpCode) # but most of these are in tax!
-
-fix = data.frame(SpCode = unique(no_match$SpCode)[c(2:49,51:63)])
-missing = fix %>% filter(!(SpCode %in% tax$Accepted.Symbol | SpCode %in% tax$Synonym.Symbol)) # still a lot aren't in Ian's thing
-
-# will have to pull info from USDA
-
-# look at some weird ones
-WestVirginia %>% filter(SpCode=="CHARAWV") # algae
-WestVirginia %>% filter(SpCode=="MORCHWV") # fungus
-
-```
-
-Fix more typos for 0% cover measures
-```{r}
-no_match_clean = no_match %>% filter(!(bestname==""), is.na(SpCode))
-unique(no_match_clean$bestname)
-
-# fix with tax?
-new_names = data.frame(oldname = unique(no_match_clean$bestname))
-new_names = new_names %>% left_join(tax %>% select(Accepted.Symbol, bestname) %>% rename(oldname = Accepted.Symbol))
-new_names = new_names %>% left_join(tax %>% select(Accepted.Symbol, bestname) %>% rename(oldname = bestname, SpCode = Accepted.Symbol))
-
-# mash together
-new_names = new_names %>% mutate(finalname = ifelse(is.na(bestname), oldname, bestname),)
-new_names = new_names %>% mutate(finalcode = ifelse(is.na(bestname), SpCode, oldname),)
-new_names = new_names %>% select(oldname, finalname, finalcode) %>%
+codes <- read_csv("/home/shares/neon-inv/output_files/USDA_Plants_ScientificNames.csv")
+glimpse(codes)
+glimpse(missing)
+missing = left_join(missing, codes %>% rename(SpCode = Synonym.Symbol))
+# join back to WV
+WestVirginia_clean = WestVirginia_clean %>% left_join(missing)
+glimpse(WestVirginia_clean)
+# merge
+WestVirginia_clean = WestVirginia_clean %>% 
+  mutate(finalcode = ifelse(is.na(WestVirginia_clean$Accepted.Symbol), SpCode, Accepted.Symbol),
+         finalname = ifelse(is.na(Scientific.Name), bestname, Scientific.Name))
+glimpse(WestVirginia_clean)
+WestVirginia_clean = WestVirginia_clean %>% mutate(finalcode = ifelse(finalcode=="7-Feb", "FEBR7", finalcode))
+WestVirginia_clean = WestVirginia_clean %>% select(-c(SpCode, bestname, Accepted.Symbol, Scientific.Name)) %>%
   rename(bestname = finalname, SpCode = finalcode)
 
-# more fixes..
+```
+
+Look again at missing
+```{r}
+no_match <- dplyr::anti_join(WestVirginia_clean, KPEACH_ExoticStatus_authority, by="SpCode")
+fix = data.frame(SpCode = unique(no_match$SpCode), bestname = unique(no_match$bestname))
+fix # double check dropped the NA and snag
+missing = fix %>% filter(!(SpCode %in% tax$Accepted.Symbol | SpCode %in% tax$Synonym.Symbol)) # only 16!
+
+
+```
+
+Fix a few by hand
+```{r}
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(SpCode = replace(SpCode,SpCode=="EUPUP44","EUPUP4"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(SpCode = replace(SpCode,SpCode=="FUPO","FUPO70"))
+WestVirginia %>% filter(SpCode=="CHARAWV") # algae
+WestVirginia %>% filter(SpCode=="MORCHWV") # fungus
+# rest are ssp. that should probably be varieties, but choosing not to mess with
 
 
 ```
 
 ### EVE ENDED IN BLOCK ABOVE
+# Need to edit below because no_match has more than it should
 
 Continue
 ```{r}
