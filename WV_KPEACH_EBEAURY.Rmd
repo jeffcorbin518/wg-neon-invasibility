@@ -46,6 +46,7 @@ KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KP
 
 ```
 
+
 Removing rows with NAs in critical columns
 
 ```{r}
@@ -103,7 +104,6 @@ WestVirginia <- WestVirginia %>%
 
 unique(WestVirginia$Year)
 
-
 #Adding a site column
 WestVirginia <- WestVirginia %>% add_column(Dataset = 'NCVS_WV', .before = "UniqueID")  %>% add_column(Zone = 'L48', .before = "UniqueID")
 
@@ -131,6 +131,13 @@ WestVirginia <- WestVirginia %>% filter(Stratum != "N")
 
 
 ```
+
+Drop rows with 0% cover measurements and no info on the observation (basically blank cells)
+```{r}
+WestVirginia = WestVirginia %>% filter(!bestname==" ")
+
+```
+
 
 Manually fixing names
 ```{r}
@@ -170,6 +177,12 @@ WestVirginia$bestname <- gsub("\\bSNAG\\b", "", WestVirginia$bestname, ignore.ca
 #Filtering out anything listed as a snag (dead tree) 
 WestVirginia <- WestVirginia %>% 
   filter(!bestname %in% c("snag", "Snag", "SNAG", "SNAGS", "snags", "Snags", "snag-", "Snags - ", "snag - "))
+
+# remove weird charaters
+WestVirginia$bestname <- gsub(' - ', "", WestVirginia$bestname)
+WestVirginia$bestname <- gsub(' \\(', "", WestVirginia$bestname)
+WestVirginia$bestname <- gsub('\\)', "", WestVirginia$bestname)
+
 
 
 ```
@@ -223,6 +236,7 @@ unique(no_match$SpCode) # bunch of codes missing from Kristen's exotic status fi
 
 
 ```
+
 Pull Ian's taxonomy to fill in holes
 ```{r}
 
@@ -230,16 +244,101 @@ tax <- read_csv(file.path(data_raw, "taxonomy_temp10_revised.csv"))
 glimpse(tax)
 
 # pull codes we need info for
-fix = unique(no_match$SpCode)[c(2:11,13:16)]
-tax %>% filter(Accepted.Symbol %in% fix)
-
-# not many... gonna need to redownload data from USDA
+fix = data.frame(SpCode = unique(no_match$SpCode)[c(2:55,57:70)])
+fix # double check dropped the NA and snag
+missing = fix %>% filter(!(SpCode %in% tax$Accepted.Symbol | SpCode %in% tax$Synonym.Symbol)) # a lot aren't in Ian's thing
 
 ```
 
+Not all the updated codes are accepted symbols - fix
 
-### EVE STOPPED IN CHUNK ABOVE HERE, NEED TO GET MORE DATA FROM USDA BEFORE CONTINUING
+```{r}
 
+WestVirginia_clean %>% filter(SpCode=="QUPR2")
+
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(SpCode = replace(SpCode,SpCode=="QUPR2","QUMO4"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(SpCode = replace(SpCode,SpCode=="CAAL27","CATO6"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(SpCode = replace(SpCode,SpCode=="EUPUP","EUPUP4"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(SpCode = replace(SpCode,SpCode=="EUAM7","EUAM9"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(SpCode = replace(SpCode,SpCode=="COVA2","SEVA4"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(SpCode = replace(SpCode,SpCode=="FUPO","FUPO70"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(SpCode = replace(SpCode,SpCode=="ARPAC","ARPA6"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(SpCode = replace(SpCode,SpCode=="ROEG","RORU82"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(SpCode = replace(SpCode,SpCode=="CHBO2","DYBO"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(SpCode = replace(SpCode,SpCode=="MEVI2","VEVI5"))
+
+# names
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(bestname = replace(bestname,SpCode=="QUMO4","Quercus montana"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(bestname = replace(bestname,SpCode=="CATO6","Carya tomentosa"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(bestname = replace(bestname,SpCode=="EUPUP4","Eutrochium purpureum var. purpureum"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(bestname = replace(bestname,SpCode=="EUAM9","Euonymus americanus"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(bestname = replace(bestname,SpCode=="SEVA4","Securigera varia"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(bestname = replace(bestname,SpCode=="FUPO70","Funaria polaris"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(bestname = replace(bestname,SpCode=="ARPA6","Arctostaphylos patula"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(bestname = replace(bestname,SpCode=="RORU82","Rosa rubiginosa"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(bestname = replace(bestname,SpCode=="DYBO","Dysphania botrys"))
+WestVirginia_clean = WestVirginia_clean %>%
+  mutate(bestname = replace(bestname,SpCode=="VEVI5","Veratrum virginicum"))
+
+```
+
+Check no matches again
+```{r}
+no_match <- dplyr::anti_join(WestVirginia_clean, KPEACH_ExoticStatus_authority, by="SpCode")
+unique(no_match$SpCode) # but most of these are in tax!
+
+fix = data.frame(SpCode = unique(no_match$SpCode)[c(2:49,51:63)])
+missing = fix %>% filter(!(SpCode %in% tax$Accepted.Symbol | SpCode %in% tax$Synonym.Symbol)) # still a lot aren't in Ian's thing
+
+# will have to pull info from USDA
+
+# look at some weird ones
+WestVirginia %>% filter(SpCode=="CHARAWV") # algae
+WestVirginia %>% filter(SpCode=="MORCHWV") # fungus
+
+```
+
+Fix more typos for 0% cover measures
+```{r}
+no_match_clean = no_match %>% filter(!(bestname==""), is.na(SpCode))
+unique(no_match_clean$bestname)
+
+# fix with tax?
+new_names = data.frame(oldname = unique(no_match_clean$bestname))
+new_names = new_names %>% left_join(tax %>% select(Accepted.Symbol, bestname) %>% rename(oldname = Accepted.Symbol))
+new_names = new_names %>% left_join(tax %>% select(Accepted.Symbol, bestname) %>% rename(oldname = bestname, SpCode = Accepted.Symbol))
+
+# mash together
+new_names = new_names %>% mutate(finalname = ifelse(is.na(bestname), oldname, bestname),)
+new_names = new_names %>% mutate(finalcode = ifelse(is.na(bestname), SpCode, oldname),)
+new_names = new_names %>% select(oldname, finalname, finalcode) %>%
+  rename(bestname = finalname, SpCode = finalcode)
+
+# more fixes..
+
+
+```
+
+### EVE ENDED IN BLOCK ABOVE
 
 Continue
 ```{r}
@@ -262,8 +361,6 @@ to_be_matched <- to_be_matched %>%
 to_be_matched <- unique(to_be_matched)
 ```
 
-
-
 Adding made up SpCodes for the hybrid rows
 
 ```{r}
@@ -272,6 +369,10 @@ Adding made up SpCodes for the hybrid rows
 
 #Making a column of row numbers
 no_match <- cbind(rownames(no_match), data.frame(no_match, row.names=NULL))
+no_match = no_match %>% filter(is.na(SpCode))
+
+# Mostly 0% cover measurements.. bunch of rows that should have names
+unique(no_match$bestname)
 
 #Adding a - so each new species code will just have a 'NOMATCH' then a dash followed by sequential numbers
 numbers <- paste0('-', no_match$`rownames(no_match)`)
