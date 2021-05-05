@@ -51,6 +51,8 @@ VegBank_TX_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_TX_KPEACH
 
 VegBank_VA_KPEACH_reduced  <- read_csv(file.path(data_output, "VegBank_VA_KPEACH_reduced.csv"))
 
+NCVS_WV_EB_reduced <- read_csv(file.path(data_output, "NCVS_WV_KPEACH_EB_reduced.csv"))
+
 
 ```
 
@@ -81,9 +83,14 @@ df11 <-  merge(df10, VegBank_TN_KPEACH_reduced, all = TRUE)
 
 df12 <-  merge(df11, VegBank_TX_KPEACH_reduced, all = TRUE)
 
-All_VegBank_KPEACH_reduced <-  merge(df12, VegBank_VA_KPEACH_reduced, all = TRUE)
+df13 <- merge(df12, VegBank_VA_KPEACH_reduced, all=TRUE)
+glimpse(df13)
+# clean up to match other datasets
+df13 <- df13 %>% rename(ExoticStatus = NEW_ExoticStatus, GrowthForm = NEW_GrowthForm) %>%
+  mutate(UniqueID = paste(Dataset, VegBankUniqueID, sep="_"))
 
-
+All_VegBank_KPEACH_reduced <-  merge(df13, NCVS_WV_EB_reduced %>% select(-c(NCVS_original_scientific_name, 'X Dimension', 'Y Dimension', 'Quad Code', 'Former Plot Code')), all = TRUE)
+glimpse(All_VegBank_KPEACH_reduced)
 
 
 ```
@@ -99,7 +106,10 @@ All_VegBank_KPEACH_reduced  <- unique(All_VegBank_KPEACH_reduced)
 All_VegBank_KPEACH_reduced <- All_VegBank_KPEACH_reduced %>% select(-'previousObsCode')
 
 #Looking for duplicate rows. It looks like there are some semi-duplicate rows in the final merged data table (aka rows with the same SpCode and VegBankUniqueID but unique cover values). It looks like those came from 1 of 2 sources: 1. The data came with them. Someone accidentally input two rows for the same species with two different cover values. OR 2. When I renamed certain species it made two rows look like semi-duplicates. For example, a researcher may record a .5 cover value for  _Verbascum thapsus ssp. thapsus_ and a .3 cover value for  _Verbascum thapsus_ in the same plot and the same year. But _Verbascum thapsus_ does not have any subspecies according to USDA so I reduced _Verbascum thapsus ssp. thapsus_ to _Verbascum thapsus_ manually. Then those two rows would appear identical except for the cover value. 
-duplicates <- All_VegBank_KPEACH_reduced %>% group_by(VegBankUniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
+duplicates <- All_VegBank_KPEACH_reduced %>% group_by(Dataset, UniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
+table(duplicates$Dataset) # fine for WV, others...?
+
+## EVE START HERE!
 
 year_NAs <- All_VegBank_KPEACH_reduced[is.na(All_VegBank_KPEACH_reduced$Year),]
 
