@@ -299,10 +299,22 @@ WestVirginia %>% filter(SpCode=="MORCHWV") # fungus
 
 ```
 
-### EVE ENDED IN BLOCK ABOVE
-# Need to edit below because no_match has more than it should
+Make sure accepted symbol is in SpCode (not synonyms)
+```{r}
+# get unique list of synonyms
+syn_unique = tax %>% select(Accepted.Symbol, Synonym.Symbol, bestname) %>%
+                                   rename(SpCode = Synonym.Symbol, newname = bestname)
+syn_unique = syn_unique[order(syn_unique[,2]),]
+syn_unique = syn_unique[!duplicated(syn_unique$SpCode),]
+# join
+WestVirginia_clean = WestVirginia_clean %>% left_join(syn_unique) %>%
+  mutate(SpCode = ifelse(is.na(Accepted.Symbol), SpCode, Accepted.Symbol),
+         bestname = ifelse(is.na(newname), bestname, newname)) %>% select(-c(newname, Accepted.Symbol))
 
-Continue
+```
+
+
+Continue (remove?)
 ```{r}
 no_match <- no_match %>% drop_na(bestname)
 
@@ -328,83 +340,75 @@ Adding made up SpCodes for the hybrid rows
 ```{r}
 
 #Adding new 'fake' species codes for the rows with no species codes (because they are hybrids or observer was uncertain of ID)
+missing = missing %>% mutate(newcode = paste0("NOMATCH_WV", 1:nrow(missing)))
 
-#Making a column of row numbers
-no_match <- cbind(rownames(no_match), data.frame(no_match, row.names=NULL))
-no_match = no_match %>% filter(is.na(SpCode))
-
-# Mostly 0% cover measurements.. bunch of rows that should have names
-unique(no_match$bestname)
-
-#Adding a - so each new species code will just have a 'NOMATCH' then a dash followed by sequential numbers
-numbers <- paste0('-', no_match$`rownames(no_match)`)
+#Join to WV
+WestVirginia_clean2 = WestVirginia_clean %>% left_join(missing) %>%
+  mutate(finalcode = ifelse(is.na(newcode), SpCode, newcode)) %>%
+  select(-c(SpCode, newcode)) %>% rename(SpCode = finalcode)
+glimpse(WestVirginia_clean2)
 
 #Final step
-no_match <- no_match %>% 
-mutate('SpCode' = paste0("NOMATCH_WV", numbers)) %>% 
-select(-'rownames(no_match)') %>% 
-rename('Former Plot Code' = 'Former.Plot.Code', 'Quad Code' = 'Quad.Code', 'X Dimension' = 'X.Dimension', 'Y Dimension' = 'Y.Dimension')
-
-
+#no_match <- no_match %>% 
+#mutate('SpCode' = paste0("NOMATCH_WV", numbers)) %>% 
+#select(-'rownames(no_match)') %>% 
+#rename('Former Plot Code' = 'Former.Plot.Code', 'Quad Code' = 'Quad.Code', 'X Dimension' = 'X.Dimension', 'Y #Dimension' = 'Y.Dimension')
 
 ```
 
-Adding species codes to rows with matches
-
+Joining growth form and exotic status 
 ```{r}
 
+# want exotic status, growth form, duration, exotic status origin
+tax_unique = tax %>% select(Accepted.Symbol, Duration, GrowthForm, inv_L48) %>% rename(SpCode = Accepted.Symbol, ExoticStatus = inv_L48) %>% distinct()
+# ID and remove empty rows
+tax_unique %>% group_by(SpCode) %>% summarise(dups = n()) %>% filter(dups > 1)
+tax_unique %>% filter(SpCode=="ACAN11") # second row is filled in...
+tax_unique = tax_unique[order(tax_unique[,1], tax_unique[,2]),]
+tax_unique %>% filter(SpCode=="ACAN11") # worked
+tax_unique = tax_unique[!duplicated(tax_unique$SpCode),]
 
-WestVirginia1 <- dplyr::inner_join(WestVirginia, KPEACH_ExoticStatus_authority, by="SpCode")
-
-WestVirginia1 <- distinct(WestVirginia1)
-
-WestVirginia1 <- WestVirginia1 %>%
-  rename("bestname" = "bestname.y", "NCVS_original_scientific_name" = "bestname.x")
-
-#Merging the df that DOES has correct species codes with the no_match table I made with the newly invented species codes
-
-WestVirginia2 <- merge(WestVirginia1, no_match, all = TRUE)
-
-WestVirginia3 <- WestVirginia2 %>%
-  filter(is.na(Synonym.Symbol)) %>%
-  select(-Synonym.Symbol)
+WestVirginia_comp = left_join(WestVirginia_clean2, tax_unique) # check rows match WV clean
 
 
 ```
+## EVE START HERE - need to make sure I'm pulling the right column's from Kristen's key
 
-
+Check for missing info
 ```{r}
+missing_new = WestVirginia_comp %>% filter(!(SpCode %in% tax_unique$SpCode)) %>% select(SpCode, bestname) %>%
+  distinct()
+unique(missing_new$SpCode)
+# for these - need to pull from Kristen's key
+glimpse(KPEACH_ExoticStatus_authority) # W = not introduced to U.S... so hopefully we won't have any of these
 
-#Removing punctuation so I can extract only the first word from this column
-WestVirginia3$NEON_GrowthForm <- gsub('[[:punct:]]', " ", WestVirginia3$NEON_GrowthForm)
-
-#Extracting first word
-WestVirginia3$NEON_GrowthForm <- stringr::word(WestVirginia3$NEON_GrowthForm, 1)
-
-#Making new column
-WestVirginia4 <- WestVirginia3  %>%
-  mutate('NEW_GrowthForm' = ifelse(!is.na(NEON_GrowthForm), NEON_GrowthForm, USDA_Growth_Form))
-
+# remove duplicate bestnames in Kristen's key
+KPEACH_unique = KPEACH_ExoticStatus_authority %>% select(SpCode, bestname, NEW_ExoticStatus, ExoticStatus_Origin, USDA_Duration, USDA_Growth_Form) %>% distinct()
+KPEACH_unique = KPEACH_unique[!duplicated(KPEACH_unique$SpCode),]
+#join
+missing_new = missing_new %>% left_join(KPEACH_unique, by="SpCode")
+# want to retain bestname.y, 
+# join back to WV
+WestVirginia_comp2 = left_join(WestVirginia_comp, missing_new %>% select(-bestname.x) %>% rename(bestname=bestname.y), by="SpCode") %>%
+  mutate(bestname = ifelse(is.na(bestname.y), bestname.x, bestname.y),
+         Duration = ifelse(is.na(USDA_Duration), Duration, USDA_Duration),
+         ExoticStatus = ifelse(is.na(NEW_ExoticStatus), ExoticStatus, NEW_ExoticStatus),
+         GrowthForm = ifelse(is.na(USDA_Growth_Form), GrowthForm, USDA_Growth_Form)) %>%
+  rename(NCVS_original_scientific_name = bestname.x) %>% select(-bestname.y, USDA_Duration)
+glimpse(WestVirginia_comp2)
+sum(is.na(WestVirginia_comp2$ExoticStatus))
 
 ```
 
-Renaming USDA_Duration column to just 'Duration' 
-
-```{r}
-
-WestVirginia5 <- WestVirginia4 %>% rename('Duration' = 'USDA_Duration')
-
-
-```
 
 Making a possible Taxon Observation Area column
 ```{r}
 
-WestVirginia5$`X Dimension` <- as.numeric(WestVirginia5$`X Dimension`)
+WestVirginia_comp2$`X Dimension` <- as.numeric(WestVirginia_comp2$`X Dimension`)
 
-WestVirginia5$`Y Dimension` <- as.numeric(WestVirginia5$`Y Dimension`)
+WestVirginia_comp2$`Y Dimension` <- as.numeric(WestVirginia_comp2$`Y Dimension`)
 
-WestVirginia5 <- WestVirginia5 %>% mutate('Possible_Taxon_Observation_Area' = `X Dimension` * `Y Dimension`)
+WestVirginia_comp2 <- WestVirginia_comp2 %>% mutate('Possible_Taxon_Observation_Area' = `X Dimension` * `Y Dimension`)
 
 ```
 
@@ -414,7 +418,7 @@ Exporting full data table
 ```{r}
 
 #As csv
-write.csv(WestVirginia5,"/home/shares/neon-inv/output_files/NCVS_WV_KPEACH_ALL_COLS.csv", row.names = FALSE)
+write.csv(WestVirginia_comp2,"/home/shares/neon-inv/output_files/NCVS_WV_KPEACH_EB_ALL_COLS.csv", row.names = FALSE)
 
 ```
 
@@ -422,68 +426,16 @@ Exporting reduced data table
 
 ```{r}
 
-WestVirginia6 <- WestVirginia5 %>%
-  select(-'NEON_GrowthForm', -'USDA_Growth_Form', -'USDA_Exotic_Status')
+WestVirginia_comp3 <- WestVirginia_comp2 %>%
+  select(-'NEW_ExoticStatus', -'USDA_Growth_Form', -'USDA_Duration')
 
 #Just using this to see if any rows are dropped because there is no latitute and longitude. There really ought to be lat and long so just trying to catch that here
-WestVirginia6 <- WestVirginia6  %>% drop_na(Lat)
+WestVirginia_comp3 <- WestVirginia_comp3  %>% drop_na(Lat)
 
 #As csv
-write.csv(WestVirginia6 ,"/home/shares/neon-inv/output_files/NCVS_WV_KPEACH_reduced.csv", row.names = FALSE)
+write.csv(WestVirginia_comp3 ,"/home/shares/neon-inv/output_files/NCVS_WV_KPEACH_EB_reduced.csv", row.names = FALSE)
 
-write.csv(WestVirginia6 ,"NCVS_WV_KPEACH_reduced.csv", row.names = FALSE)
-
-```
-
-### EB EDITS START HERE:
-
-Reading in latest data
-```{r}
-# Paths to data
-shared_data_dir <- "/home/shares/neon-inv"
-data_output <- file.path(shared_data_dir, "output_files")
-
-# Latest datasheet
-wv <- read_csv(file.path(data_output, "NCVS_WV_KPEACH_reduced.csv"))
-glimpse(wv)
-
-# Fixed taxonomy
-names <- read_csv(file.path(data_output, "no_match_WV_EBEAURY.csv"))
-glimpse(names)
-
-
-```
-Replace old names/codes with fixed
-
-```{r}
-# Subset taxonomy to only fixed codes
-names_sub = names %>% filter(fixed=="Y")
-
-# Join to datasheet
-wv_join = left_join(wv, names_sub %>% select(-fixed))
-wv_join %>% filter(!is.na(newname)) %>% head()
-
-# Merge correct codes to one column
-wv_join = wv_join %>% mutate(finalcode = ifelse(is.na(wv_join$newcode), SpCode, newcode),
-                   finalname = ifelse(is.na(newname), bestname, newname))
-
-# Clean up & drop columns that will need to be updated
-glimpse(wv_join)
-wv_clean = wv_join %>% select(-c(bestname, SpCode, newname, newcode, NEW_ExoticStatus, ExoticStatus_Origin)) %>%
-  rename(bestname = finalname, SpCode = finalcode)
-colnames(wv_clean)
-colnames(KPEACH_ExoticStatus_authority)
-
-```
-
-Rematch exotic status
-```{r}
-# Load data
-KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority_031621.csv")
-
-# drop columns that already exit
-
-test = inner_join(wv_clean, KPEACH_ExoticStatus_authority, by="SpCode")
+#write.csv(WestVirginia_comp3 ,"NCVS_WV_KPEACH_reduced.csv", row.names = FALSE)
 
 ```
 
