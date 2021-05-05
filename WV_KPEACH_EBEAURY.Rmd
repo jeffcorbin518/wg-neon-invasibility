@@ -431,10 +431,17 @@ WestVirginia_comp3 <- WestVirginia_comp2 %>%
 #Just using this to see if any rows are dropped because there is no latitute and longitude. There really ought to be lat and long so just trying to catch that here
 WestVirginia_comp3 <- WestVirginia_comp3  %>% drop_na(Lat)
 
-#As csv
-write.csv(WestVirginia_comp3 ,"/home/shares/neon-inv/output_files/NCVS_WV_KPEACH_EB_reduced.csv", row.names = FALSE)
+# Condense strata to one species cover measure per plot
+WestVirginia_comp4  <- WestVirginia_comp3 %>% group_by(Dataset, Zone, UniqueID, Year, Lat, Long, SpCode, Duration, GrowthForm, ExoticStatus, ExoticStatus_Origin, bestname, `Taxon Observation Area`) %>%
+  summarise(PctCov = sum(PctCov)) # reduced a ton of rows
+range(WestVirginia_comp4$PctCov, na.rm=T) # absolute cover 
+# drop one row with an NA for cover
+WestVirginia_comp4 = WestVirginia_comp4 %>% filter(!is.na(PctCov))
 
-#write.csv(WestVirginia_comp3 ,"NCVS_WV_KPEACH_reduced.csv", row.names = FALSE)
+#As csv
+write.csv(WestVirginia_comp4 ,"/home/shares/neon-inv/output_files/NCVS_WV_KPEACH_EB_reduced.csv", row.names = FALSE)
+
+#write.csv(WestVirginia_comp4 ,"NCVS_WV_KPEACH_reduced.csv", row.names = FALSE)
 
 ```
 
