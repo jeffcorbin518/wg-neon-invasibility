@@ -176,6 +176,36 @@ pct_cov_NAs <- All_VegBank_KPEACH_reduced3[is.na(All_VegBank_KPEACH_reduced3$Pct
 
 ```
 
+Check to make sure codes are for accepted symbols using Ian's taxonomy
+```{r}
+tax <- read_csv(file.path(data_raw, "taxonomy_temp10_revised.csv"))
+glimpse(tax)
+All_VegBank_KPEACH_reduced3 %>% filter(SpCode %in% tax$Synonym.Symbol) # none! that's good
+# drop check column
+All_VegBank_KPEACH_reduced3 = All_VegBank_KPEACH_reduced3 %>% select(-check)
+
+```
+
+Check to see that each species has one assigned exotic status
+
+```{r}
+All_VegBank_KPEACH_reduced3 %>% filter(SpCode=="DESMO")
+
+check_exo = All_VegBank_KPEACH_reduced3 %>% ungroup() %>% select(SpCode, ExoticStatus) %>% group_by(SpCode) %>%
+  distinct() %>% summarise(n_exo = n()) %>% filter(n_exo > 1)
+# 12 need to be fixed...
+# exmaple to see if we need to condense cover...?
+All_VegBank_KPEACH_reduced3 %>% filter(SpCode=="AMBRO") # exotic status missing from WV but we have it for others.. could be an error on my end
+All_VegBank_KPEACH_reduced3 %>% filter(SpCode=="AMST80") # also best names are not always consistent...
+
+check_name = All_VegBank_KPEACH_reduced3 %>% ungroup() %>% select(SpCode, bestname) %>% group_by(SpCode) %>%
+  distinct() %>% summarise(n_exo = n()) %>% filter(n_exo > 1)
+
+## EVE PICK UP HERE
+  # 12 species codes that don't have consistent exotic status
+  # There are a ton of species codes that do not have the right bestname
+
+```
 
 
 ```{r}
