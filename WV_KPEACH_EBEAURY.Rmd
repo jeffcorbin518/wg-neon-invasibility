@@ -372,7 +372,6 @@ WestVirginia_comp = left_join(WestVirginia_clean2, tax_unique) # check rows matc
 
 
 ```
-## EVE START HERE - need to make sure I'm pulling the right column's from Kristen's key
 
 Check for missing info
 ```{r}
@@ -408,7 +407,7 @@ WestVirginia_comp2$`X Dimension` <- as.numeric(WestVirginia_comp2$`X Dimension`)
 
 WestVirginia_comp2$`Y Dimension` <- as.numeric(WestVirginia_comp2$`Y Dimension`)
 
-WestVirginia_comp2 <- WestVirginia_comp2 %>% mutate('Possible_Taxon_Observation_Area' = `X Dimension` * `Y Dimension`)
+WestVirginia_comp2 <- WestVirginia_comp2 %>% mutate('Taxon Observation Area' = `X Dimension` * `Y Dimension`)
 
 ```
 
