@@ -59,6 +59,7 @@ NCVS_WV_EB_reduced <- read_csv(file.path(data_output, "NCVS_WV_KPEACH_EB_reduced
 
 ```{r}
 
+
 df1 <-  merge(VegBank_AK_KPEACH_reduced, VegBank_AL_KPEACH_reduced, all = TRUE)
 
 df2 <-  merge(df1, VegBank_FL_KPEACH_reduced, all = TRUE)
@@ -89,13 +90,13 @@ glimpse(df13)
 df13 <- df13 %>% rename(ExoticStatus = NEW_ExoticStatus, GrowthForm = NEW_GrowthForm) %>%
   mutate(UniqueID = paste(Dataset, VegBankUniqueID, sep="_"))
 
-All_VegBank_KPEACH_reduced <-  merge(df13, NCVS_WV_EB_reduced %>% select(-c(NCVS_original_scientific_name, 'X Dimension', 'Y Dimension', 'Quad Code', 'Former Plot Code')), all = TRUE)
+All_VegBank_KPEACH_reduced <-  merge(df13, NCVS_WV_EB_reduced, all = TRUE)
 glimpse(All_VegBank_KPEACH_reduced)
 
 
 ```
 
-Quality Checks
+Quality Checks - fixing duplicate rows
 
 ```{r}
 
@@ -107,38 +108,83 @@ All_VegBank_KPEACH_reduced <- All_VegBank_KPEACH_reduced %>% select(-'previousOb
 
 #Looking for duplicate rows. It looks like there are some semi-duplicate rows in the final merged data table (aka rows with the same SpCode and VegBankUniqueID but unique cover values). It looks like those came from 1 of 2 sources: 1. The data came with them. Someone accidentally input two rows for the same species with two different cover values. OR 2. When I renamed certain species it made two rows look like semi-duplicates. For example, a researcher may record a .5 cover value for  _Verbascum thapsus ssp. thapsus_ and a .3 cover value for  _Verbascum thapsus_ in the same plot and the same year. But _Verbascum thapsus_ does not have any subspecies according to USDA so I reduced _Verbascum thapsus ssp. thapsus_ to _Verbascum thapsus_ manually. Then those two rows would appear identical except for the cover value. 
 duplicates <- All_VegBank_KPEACH_reduced %>% group_by(Dataset, UniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
-table(duplicates$Dataset) # fine for WV, others...?
+table(duplicates$Dataset) # not that many
+# look at an example
+All_VegBank_KPEACH_reduced %>% filter(Dataset=="NCVS_WV", SpCode=="ASTER", UniqueID=="SHMO.9") # family ID'd
+All_VegBank_KPEACH_reduced %>% filter(UniqueID=="VEGBANK_NC_Coastal_057-09-0825", SpCode=="SCHIZ4") # probably multiple species of the same genus
 
-## EVE START HERE!
+# concerning if the pctcov measurements are the same, but if not I think we condense (ssp, genus, stuff like that)
+duplicates = duplicates %>% mutate(check = paste(UniqueID, SpCode, sep=","))
+check = All_VegBank_KPEACH_reduced %>% mutate(check = paste(UniqueID, SpCode, sep=",")) %>%
+  filter(check %in% duplicates$check)
 
-year_NAs <- All_VegBank_KPEACH_reduced[is.na(All_VegBank_KPEACH_reduced$Year),]
+# looks like most are issues with varieties/subspecies reduced to same code, and missing info in woodiness column
+# reduce to one measure of cover per species per plot
+All_VegBank_KPEACH_reduced2 = All_VegBank_KPEACH_reduced %>% select(-Woodiness) %>% ungroup() %>% group_by(Dataset, Zone, Year, Lat, Long, `Taxon Observation Area`, bestname, SpCode, ExoticStatus, ExoticStatus_Origin, Duration, GrowthForm, UniqueID, VegBankUniqueID, `Public Latitude`, `Public Longitude`, `Sampling Level`) %>%
+  summarise(PctCov = sum(PctCov)) # reduced about 200 rows
 
-#looking for any unexpected values
-unique(All_VegBank_KPEACH_reduced$`Sampling Level`) # Only 4's and 5's which is what we wanted to see
+duplicates <- All_VegBank_KPEACH_reduced2 %>% ungroup() %>% group_by(Dataset, UniqueID, SpCode) %>% summarise(n_obs = n()) %>% filter(n_obs > 1)
+table(duplicates$Dataset) # reduced most
+duplicates = duplicates %>% mutate(check = paste(UniqueID, SpCode, sep=","))
+check = All_VegBank_KPEACH_reduced2 %>% mutate(check = paste(UniqueID, SpCode, sep=",")) %>%
+  filter(check %in% duplicates$check)
 
-unique(All_VegBank_KPEACH_reduced$Year) #No NAs or weird dates
+# remaining duplicates are issues with bestname including not all bestnames...'
+# hard to tell if these are duplicates or distinct cover measurements
+# checked for SC - they seem like distinct cover measurements... safe to condense
+check_new = check %>% ungroup() %>% group_by(Dataset, Zone, Year, Lat, Long, `Taxon Observation Area`, SpCode, ExoticStatus, ExoticStatus_Origin, Duration, GrowthForm, UniqueID, VegBankUniqueID, `Public Latitude`, `Public Longitude`, `Sampling Level`) %>% summarise(PctCov = sum(PctCov))
 
-unique(All_VegBank_KPEACH_reduced$`Taxon Observation Area`)
+# join actual bestname to code
+codes <- read_csv("/home/shares/neon-inv/output_files/USDA_Plants_ScientificNames.csv")
+codes = codes %>% select(Accepted.Symbol, Scientific.Name) %>% rename(SpCode=Accepted.Symbol, bestname=Scientific.Name) %>% distinct()
+codes = codes[!duplicated(codes$SpCode),]
+check_new = check_new %>% left_join(codes) %>% mutate(check = paste(UniqueID, SpCode, sep=","))
 
-#No NA taxon observation area
-taxon_obs_area_NAs <- All_VegBank_KPEACH_reduced[is.na(All_VegBank_KPEACH_reduced$`Taxon Observation Area`),]
-
-#Whew. 0 NA rows for bestname
-bestname_NAs <- All_VegBank_KPEACH_reduced[is.na(All_VegBank_KPEACH_reduced$bestname),]
-
-#0 rows with no cover data
-pct_cov_NAs <- All_VegBank_KPEACH_reduced[is.na(All_VegBank_KPEACH_reduced$PctCov),]
+# drop old rows and add innew
+All_VegBank_KPEACH_reduced3 = All_VegBank_KPEACH_reduced2 %>% mutate(check = paste(UniqueID,SpCode, sep=",")) %>%
+  filter(!check %in% check_new$check)
+All_VegBank_KPEACH_reduced3 = rbind(All_VegBank_KPEACH_reduced3, check_new)
 
 ```
+
+Check other columns
+```{r}
+
+year_NAs <- All_VegBank_KPEACH_reduced3[is.na(All_VegBank_KPEACH_reduced3$Year),]
+
+#looking for any unexpected values
+unique(All_VegBank_KPEACH_reduced3$`Sampling Level`) # Only 4's and 5's which is what we wanted to see
+
+unique(All_VegBank_KPEACH_reduced3$Year) #No NAs or weird dates
+
+unique(All_VegBank_KPEACH_reduced3$`Taxon Observation Area`) # NAs and 0s...?
+
+#No NA taxon observation area
+taxon_obs_area_NAs <- All_VegBank_KPEACH_reduced3[is.na(All_VegBank_KPEACH_reduced3$`Taxon Observation Area`),] # bunch missing from EV
+table(taxon_obs_area_NAs$Dataset)  # all WV
+taxon_obs_area_0s <- All_VegBank_KPEACH_reduced3 %>% filter(`Taxon Observation Area`==0) # all WV also
+# y dimension of plot is 0...wonder if those are transects
+
+# not sure if missing vals were dropped from other datasets, but I'm okay with leaving them in for now
+
+#Whew. 0 NA rows for bestname
+bestname_NAs <- All_VegBank_KPEACH_reduced3[is.na(All_VegBank_KPEACH_reduced3$bestname),]
+
+#0 rows with no cover data
+pct_cov_NAs <- All_VegBank_KPEACH_reduced3[is.na(All_VegBank_KPEACH_reduced3$PctCov),]
+
+
+```
+
 
 
 ```{r}
 
 
   #As csv
-write.csv(All_VegBank_KPEACH_reduced,"/home/shares/neon-inv/output_files/All_VegBank_KPEACH_reduced.csv", row.names = FALSE)
+write.csv(All_VegBank_KPEACH_reduced3,"/home/shares/neon-inv/output_files/All_VegBank_KPEACH_EB_reduced.csv", row.names = FALSE)
 
-write.csv(All_VegBank_KPEACH_reduced,"All_VegBank_KPEACH_reduced.csv", row.names = FALSE)
+#write.csv(All_VegBank_KPEACH_reduced,"All_VegBank_KPEACH_reduced.csv", row.names = FALSE)
 
 
 ```
