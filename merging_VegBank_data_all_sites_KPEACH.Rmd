@@ -208,14 +208,149 @@ check_name = All_VegBank_KPEACH_reduced3 %>% ungroup() %>% select(SpCode, bestna
 ```
 
 
+Standardize merged data to match Ian's taxonomy 
+```{r}
+# clean up Ian's tax file
+tax_unique = tax %>% select(Accepted.Symbol, Duration, GrowthForm, inv_L48, bestname) %>% rename(SpCode = Accepted.Symbol, ExoticStatus = inv_L48) %>% distinct()
+# ID and remove empty rows (duplicates)
+tax_unique = tax_unique[order(tax_unique[,1], tax_unique[,2]),]
+tax_unique = tax_unique[!duplicated(tax_unique$SpCode),]
+
+# join to data
+All_VegBank_KPEACH_reduced4 = left_join(All_VegBank_KPEACH_reduced3 %>% ungroup() %>% select(-c(bestname, Duration, GrowthForm, ExoticStatus)), tax_unique, by="SpCode") # check rows match WV clean
+
+
+```
+
+Check which codes aren't in tax
+```{r}
+missing = All_VegBank_KPEACH_reduced4 %>% filter(!SpCode %in% tax_unique$SpCode)
+unique(missing$SpCode) # most are nomatches, but some are lefit
+# drop nomatch codes
+missing_unique = missing[!grepl("NOMATCH", missing$SpCode),]
+unique(missing_unique$SpCode) # these are codes that are not in Ian's taxonomoy
+  
+```
+
+Make sure they are accepted symbols using USDA
+```{r}
+codes <- read_csv("/home/shares/neon-inv/output_files/USDA_Plants_ScientificNames.csv")
+head(codes)
+fix = data.frame(SpCode = unique(missing_unique$SpCode))
+fix %>% filter(SpCode %in% codes$Synonym.Symbol) # none! should all be accepted symbols. that's good
+fix %>% filter(!(SpCode %in% codes$Accepted.Symbol))
+# fix FEBR7 in codes
+codes$Accepted.Symbol[codes$Accepted.Symbol=="7-Feb"] <- "FEBR7"
+# now all fix codes are in USDA
+
+```
+Pull missing codes from Kristen's key
+```{r}
+KPEACH_ExoticStatus_authority <- read_csv("/home/shares/neon-inv/output_files/KPEACH_ExoticStatus_authority_031621.csv")
+glimpse(KPEACH_ExoticStatus_authority)
+
+# make sure missing codes are in here
+fix %>% filter(!(SpCode %in% KPEACH_ExoticStatus_authority$SpCode)) # yay! so all codes are correct
+
+# pull just exotic status, duration, and growth form (we know there are issues with bestname)
+KP_exo = KPEACH_ExoticStatus_authority %>% select(SpCode, NEW_ExoticStatus, ExoticStatus_Origin, USDA_Duration, USDA_Growth_Form) %>% distinct() %>% filter(SpCode %in% fix$SpCode)
+# check to make sure there's only one entry per code
+KP_exo %>% group_by(SpCode) %>% summarise(n_exo = n()) %>% filter(n_exo > 1)
+# two duplicates
+KP_exo %>% filter(SpCode=="AMAC4") # should be I
+KP_exo %>% filter(SpCode=="RHBE2") # should be NA (not reported in L48)
+# drop
+KP_exo$NEW_ExoticStatus[KP_exo$SpCode=="AMAC4"] <- "I"
+KP_exo$NEW_ExoticStatus[KP_exo$SpCode=="RHBE2"] <- NA
+KP_exo = unique(KP_exo)
+
+# join to fix
+fix_join = left_join(fix, KP_exo)
+
+```
+Add bestname from USDA to fix key
+```{r}
+head(codes)
+codes = codes %>% select(Accepted.Symbol, Scientific.Name) %>% rename(SpCode=Accepted.Symbol, bestname=Scientific.Name) %>% distinct()
+codes = codes[!duplicated(codes$SpCode),]
+
+fix_join = left_join(fix_join, codes)
+
+```
+Join back to AllVeg and clean up
+```{r}
+All_VegBank_KPEACH_reduced5 = left_join(All_VegBank_KPEACH_reduced4, fix_join, by="SpCode")
+glimpse(All_VegBank_KPEACH_reduced5)
+
+All_VegBank_KPEACH_reduced6 = All_VegBank_KPEACH_reduced5 %>% mutate(bestname = ifelse(is.na(bestname.y), bestname.x, bestname.y),Duration = ifelse(is.na(USDA_Duration), Duration, USDA_Duration),GrowthForm = ifelse(is.na(USDA_Growth_Form), GrowthForm, USDA_Growth_Form),ExoticStatus = ifelse(is.na(NEW_ExoticStatus), ExoticStatus, NEW_ExoticStatus),ExoticStatus_Origin = ifelse(is.na(ExoticStatus_Origin.y), ExoticStatus_Origin.x, ExoticStatus_Origin.y)) %>% select(-c(bestname.x, bestname.y,USDA_Duration, NEW_ExoticStatus, USDA_Growth_Form, ExoticStatus_Origin.x, ExoticStatus_Origin.y))
+
+```
+
+Check again to make sure all codes match to only one exotic status
+```{r}
+All_VegBank_KPEACH_reduced6 %>% select(SpCode, ExoticStatus) %>% distinct() %>% group_by(SpCode) %>% summarise(n_exo = n()) %>% filter(n_exo > 1) # YAY!
+# Each code should only match to one exotic status
+# check for bestname, duration and growthform just to be safe
+All_VegBank_KPEACH_reduced6 %>% select(SpCode, bestname) %>% distinct() %>% group_by(SpCode) %>% summarise(n_exo = n()) %>% filter(n_exo > 1)
+All_VegBank_KPEACH_reduced6 %>% select(SpCode, GrowthForm) %>% distinct() %>% group_by(SpCode) %>% summarise(n_exo = n()) %>% filter(n_exo > 1) # YAY!
+All_VegBank_KPEACH_reduced6 %>% select(SpCode, Duration) %>% distinct() %>% group_by(SpCode) %>% summarise(n_exo = n()) %>% filter(n_exo > 1) # YAY!
+# no duplicates!
+
+
+```
+
+Last check - make sure exotic status that was hand corrected by NCEAS people is included here
+```{r}
+hand_exo = read_csv(file.path(data_output, "multStatusSpL48 - multStatusSpL48.csv"))
+head(hand_exo)
+
+All_VegBank_KPEACH_reduced7 = All_VegBank_KPEACH_reduced6 %>% left_join(hand_exo %>% select(SpCode, 'FINAL DECISION (L48)'))
+All_VegBank_KPEACH_reduced7 = All_VegBank_KPEACH_reduced7 %>% mutate(ExoticStatus = ifelse(is.na(`FINAL DECISION (L48)`), ExoticStatus, `FINAL DECISION (L48)`)) %>% select(-`FINAL DECISION (L48)`)
+# check one that was NA and should now be I
+All_VegBank_KPEACH_reduced7 %>% filter(SpCode=="BRIN2") # YAY!
+
+```
+
+
+Export
+
 ```{r}
 
 
   #As csv
-write.csv(All_VegBank_KPEACH_reduced3,"/home/shares/neon-inv/output_files/All_VegBank_KPEACH_EB_reduced.csv", row.names = FALSE)
+write.csv(All_VegBank_KPEACH_reduced7,"/home/shares/neon-inv/output_files/All_VegBank_KPEACH_EB_reduced.csv", row.names = FALSE)
 
 #write.csv(All_VegBank_KPEACH_reduced,"All_VegBank_KPEACH_reduced.csv", row.names = FALSE)
 
+
+```
+
+Some prelim exploration
+```{r}
+# How many plots in these added dataset?
+n_distinct(All_VegBank_KPEACH_reduced7$UniqueID) # wow!
+# How many invaded vs. uninvaded
+All_VegBank_KPEACH_reduced7 %>% filter(ExoticStatus=="I") %>% select(UniqueID) %>% distinct(UniqueID) %>% nrow()
+# Wow - most are invaded
+# but this includes plots with multiple sampling years
+# how many distinct locations?
+all_plots = All_VegBank_KPEACH_reduced7 %>% ungroup() %>% select(Dataset, UniqueID, Long, Lat) %>% distinct() %>%
+  filter(!is.na(Long))
+# ~15,000
+inv_plots = All_VegBank_KPEACH_reduced7 %>% ungroup() %>% filter(ExoticStatus=="I") %>% select(Dataset, UniqueID, Long, Lat) %>% distinct() %>%
+  filter(!is.na(Long))
+# ~5000
+
+# map?
+library(mapproj)
+states <- map_data("state")
+ggplot(states, aes(long, lat, group = group)) + 
+  geom_polygon(fill = "white", colour = "black") + 
+  geom_point(data = inv_plots, aes(Long, Lat), pch=16, size=2.5, alpha=0.2, 
+             inherit.aes = FALSE) + coord_map("conic", lat0 = 30) + xlab("Longitude") + ylab("Latitude") +
+  theme(axis.text=element_text(size=12), legend.text=element_text(size=12))
+
+  
 
 ```
 
