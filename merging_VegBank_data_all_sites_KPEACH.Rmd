@@ -320,7 +320,7 @@ Export
   #As csv
 write.csv(All_VegBank_KPEACH_reduced7,"/home/shares/neon-inv/output_files/All_VegBank_KPEACH_EB_reduced.csv", row.names = FALSE)
 
-#write.csv(All_VegBank_KPEACH_reduced,"All_VegBank_KPEACH_reduced.csv", row.names = FALSE)
+#write.csv(All_VegBank_KPEACH_reduced7,"All_VegBank_KPEACH_EB_reduced.csv", row.names = FALSE)
 
 
 ```
@@ -353,4 +353,22 @@ ggplot(states, aes(long, lat, group = group)) +
   
 
 ```
+Where does this fill in for old datasets?
+```{r}
+all_nceas = read_csv(file.path("/home/beaury/Spatial Autocorrelation", "rawdatamodel_Mar16.csv"))
+head(all_nceas)
+
+all_plots = rbind(all_nceas %>% select(Dataset, UniqueID, Long, Lat), inv_plots)
+all_plots = all_plots %>% mutate(Update = ifelse(Dataset %in% c("NPS", "BLM", "FIA", "NEON"), "oldata", "newdata"))
+
+
+ggplot(states, aes(long, lat, group = group)) + 
+  geom_polygon(fill = "white", colour = "black") + 
+  geom_point(data = all_plots, aes(Long, Lat, color=Update), pch=16, size=1.5, alpha=0.2, 
+             inherit.aes = FALSE) + coord_map("conic", lat0 = 30) + xlab("Longitude") + ylab("Latitude") +
+  theme(axis.text=element_text(size=12), legend.text=element_text(size=12)) + ggtitle("Invaded plots across datasets (n = 31,211)")
+
+
+```
+
 
