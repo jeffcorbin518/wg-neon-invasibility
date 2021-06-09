@@ -1,0 +1,74 @@
+#Organize VA NHP 03-22-21 data for merging with NCEAS data
+
+library ("dplyr")
+setwd ("~/Documents/Darwin Relatedness Project/VA NHP data 3-22-21")
+
+SppData <- read.csv ("VAPLOTS_03222021_CompositionalData.csv")
+colnames(SppData)[colnames(SppData) == "Acronym"] <- "SpCode"
+SppDetails <- read.csv ("VANHP_MasterSppList_03_22_21.csv")
+colnames(SppDetails)[colnames(SppDetails) == "ACRONYM"] <- "SpCode"
+PlotData <-read.csv ("VANHP_PlotMetadata_03_22_21.csv")
+
+#head (SppData)
+#head (SppDetails)
+#head (PlotData)
+
+unique (SppData$Outside.Plot)
+SppData [is.na (SppData)] <- 0
+#Remove species that are outside plot - SppData$Outside.Plot = 1
+SppData <- subset (SppData, Outside.Plot != 1)
+SppData <- subset (SppData, select = -c(Outside.Plot))
+#Remove ID.flag = 5 (nonvascular). The other categories are all "probable" species ID, so leave and delete column
+SppData <- subset (SppData, ID.Flag != 5)
+SppData <- subset (SppData, select = -c(ID.Flag))
+
+#Merge species spp details
+SppPlus <- left_join(SppData, SppDetails)
+#Merge species and plot details
+VADataFull <- left_join (SppPlus, PlotData, by = "Plot")
+VADataSmall <- VADataFull [, c(1, 2, 3, 4, 5, 6, 19, 24, 38, 40, 41)]  
+VADataSmall [is.na (VADataSmall)] <- 0
+#Remove plots that have Plot.Size = 0
+VADataSmall <- subset (VADataSmall, Plot.Size != 0)
+
+#Convert Exotic/Native
+unique (VADataSmall$exotic)
+VADataSmall <- VADataSmall %>%
+  mutate (VAExCode = ifelse(exotic == 1, "I", "N"), .keep = "unused")
+
+#Convert Date
+VADataSmall$Date2 <- as.Date(VADataSmall$Date, format = "%m/%d/%y")
+VADataSmall$Date3 <- format(VADataSmall$Date2, format="%Y")
+VADataSmall <- subset (VADataSmall, select = -c(Date, Date2))
+colnames (VADataSmall)[colnames(VADataSmall) == "Date3"] <- "Year"
+
+#Convert Lat Long
+#Latitude is DDMMSS.ssss, Longitude is DDMMSS.ssss but longitude is stored without negative sign.
+VADataSmall <- transform (VADataSmall, LatDeg = substr(as.character(Latitude), 1, 2), LatMin = substr(as.character(Latitude), 3, 4), LatSec = substr(as.character(Latitude), 5, 10))
+VADataSmall <- transform (VADataSmall, LonDeg = substr(as.character(Longitude), 1, 2), LonMin = substr(as.character(Longitude), 3, 4), LonSec = substr(as.character(Longitude), 5, 10))
+#Formula = DecimalDegrees (DD) = deg + (min/60) + sec/3600). Longitude (W) is negative
+VADataSmall$NewLat <- as.numeric(VADataSmall$LatDeg) + (as.numeric(VADataSmall$LatMin)/60) + (as.numeric(VADataSmall$LatSec)/3600)
+VADataSmall$NewLon <- -(as.numeric(VADataSmall$LonDeg) + (as.numeric(VADataSmall$LonMin)/60) + (as.numeric(VADataSmall$LonSec)/3600))
+
+#Cover Classes
+#1 - 0.05%
+#2 - 0.55%
+#3 - 1.5%
+#4 - 3.5%
+#5 - 7.5%
+#6 - 17.5%
+#7 - 37.5%
+#8 - 62.5%
+#9 - 87.5%
+
+NewCover <- c(0.05, 0.55, 1.5, 3.5, 7.5, 17.5, 37.5, 62.5, 87.5)
+VADataSmall$NewCov <- NewCover [VADataSmall$Cover]
+
+#Clean up
+#VADataSmall <- subset (VADataSmall, select = -c(Date, Date2))
+VADataFinal <- subset (VADataSmall, select = -c(Latitude, Longitude, LatDeg, LatMin, LatSec, LonDeg, LonMin, LonSec, Cover, speciesID))
+colnames (VADataFinal)[colnames(VADataFinal) == "NewLat"] <- "Lat"
+colnames (VADataFinal)[colnames(VADataFinal) == "NewLon"] <- "Long"
+colnames (VADataFinal)[colnames(VADataFinal) == "NewCov"] <- "PctCov"
+VADataFinal$Dataset <- "VA_NHP"
+VADataFinal <- VADataFinal[, c(11, 1, 8, 9, 5, 7, 2, 3, 4, 3, 6)]
